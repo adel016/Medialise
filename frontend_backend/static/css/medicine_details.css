@@ -1,0 +1,855 @@
+/* Styles spécifiques pour la page de détails des médicaments */
+
+/* Banner Section */
+.medicine-banner {
+    padding: var(--spacing-lg) 0;
+    background-color: var(--black);
+    color: var(--white);
+    position: relative;
+    overflow: hidden;
+}
+
+.medicine-banner::after {
+    content: '';
+    position: absolute;
+    top: -20%;
+    right: -5%;
+    width: 60%;
+    height: 140%;
+    background-color: var(--primary);
+    transform: rotate(15deg);
+    z-index: 0;
+}
+
+.medicine-banner .container {
+    position: relative;
+    z-index: 1;
+}
+
+.medicine-banner h2 {
+    color: var(--white);
+    margin-bottom: var(--spacing-md);
+    max-width: 800px;
+    position: relative;
+    z-index: 2;
+}
+
+.medicine-banner h2::after {
+    background-color: var(--white);
+    bottom: -10px;
+}
+
+.medicine-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    font-size: 0.9rem;
+    color: var(--light-gray);
+    position: relative;
+    z-index: 2;
+}
+
+.medicine-meta a {
+    color: var(--light-gray);
+    text-decoration: underline;
+}
+
+.medicine-meta a:hover {
+    color: var(--white);
+}
+
+/* Content Section */
+.medicine-content {
+    padding: var(--spacing-lg) 0;
+    background-color: var(--light-gray);
+}
+
+/* Navigation Tabs */
+.nav-tabs {
+    display: flex;
+    margin-bottom: var(--spacing-md);
+    border-bottom: 1px solid var(--medium-gray);
+}
+
+.nav-tab {
+    padding: var(--spacing-sm) var(--spacing-md);
+    cursor: pointer;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: var(--transition);
+    position: relative;
+}
+
+.nav-tab::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 3px;
+    background-color: var(--primary);
+    transition: width 0.3s ease;
+}
+
+.nav-tab:hover::after {
+    width: 100%;
+}
+
+.nav-tab.active {
+    color: var(--primary);
+}
+
+.nav-tab.active::after {
+    width: 100%;
+}
+
+/* Content Cards */
+.content-card {
+    background-color: var(--white);
+    margin-bottom: var(--spacing-md);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.card-header {
+    padding: var(--spacing-md);
+    border-bottom: 1px solid var(--light-gray);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: var(--primary);
+}
+
+.card-body {
+    padding: var(--spacing-md);
+}
+
+/* Tab Content */
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Summary Sections */
+.summary-section {
+    margin-bottom: var(--spacing-lg);
+}
+
+.summary-section h4 {
+    color: var(--black);
+    border-bottom: 2px solid var(--primary);
+    padding-bottom: var(--spacing-xs);
+    margin-bottom: var(--spacing-sm);
+    display: inline-block;
+}
+
+.content-item {
+    margin-bottom: var(--spacing-sm);
+    line-height: 1.6;
+}
+
+/* Medicine Tables */
+.medicine-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+    font-size: 0.95rem;
+    box-shadow: 0 2px 3px rgba(0,0,0,0.05);
+}
+
+.medicine-table th, 
+.medicine-table td {
+    padding: 0.8rem;
+    text-align: left;
+    border: 1px solid #e0e0e0;
+}
+
+.medicine-table th {
+    background-color: #f5f5f5;
+    font-weight: 600;
+    color: #333;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.03em;
+}
+
+.medicine-table tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.medicine-table tr:hover {
+    background-color: #f0f0f0;
+}
+
+.table-caption {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+    color: #333;
+}
+
+.table-container {
+    overflow-x: auto;
+    margin: 1.5rem 0;
+    border-radius: 4px;
+    border-left: 3px solid var(--primary);
+    padding-left: 0.5rem;
+}
+
+/* Debug Section */
+.debug-section {
+    display: none;
+    margin-top: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+pre {
+    background-color: var(--light-gray);
+    padding: var(--spacing-md);
+    overflow-x: auto;
+    border: 1px solid var(--medium-gray);
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.9rem;
+    white-space: pre-wrap;
+}
+
+.debug-toggle {
+    background-color: var(--black);
+    color: var(--white);
+    border: none;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.debug-toggle:hover {
+    background-color: var(--primary);
+}
+
+/* Technical Info */
+.url-info,
+.data-info,
+.id-info {
+    margin-bottom: var(--spacing-sm);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.url-info i,
+.data-info i,
+.id-info i {
+    color: var(--primary);
+}
+
+.url-info a {
+    word-break: break-all;
+}
+
+.debug-actions {
+    display: flex;
+    align-items: center;
+}
+
+/* No Data Message */
+.no-data-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-lg);
+    text-align: center;
+    color: var(--text-light);
+}
+
+.no-data-message i {
+    font-size: 2rem;
+    margin-bottom: var(--spacing-md);
+    color: var(--medium-gray);
+}
+
+/* Content Styling for HTML Content */
+.content-item p {
+    margin-bottom: var(--spacing-sm);
+}
+
+.content-item ul, 
+.content-item ol {
+    margin-left: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
+}
+
+.content-item strong,
+.content-item b {
+    font-weight: 600;
+}
+
+.content-item em,
+.content-item i {
+    font-style: italic;
+}
+
+/* Formatted Text Styling */
+.formatted-text {
+    margin-bottom: var(--spacing-sm);
+}
+
+/* Preserve all HTML formatting from the original source */
+.formatted-text p {
+    margin-bottom: var(--spacing-sm);
+}
+
+.formatted-text em,
+.formatted-text i {
+    font-style: italic;
+}
+
+.formatted-text strong,
+.formatted-text b {
+    font-weight: 700;
+}
+
+.formatted-text u {
+    text-decoration: underline;
+}
+
+.formatted-text h1, 
+.formatted-text h2, 
+.formatted-text h3, 
+.formatted-text h4, 
+.formatted-text h5, 
+.formatted-text h6 {
+    margin-top: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
+    font-weight: 700;
+}
+
+.formatted-text ul, 
+.formatted-text ol {
+    margin-left: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    padding-left: var(--spacing-md);
+}
+
+.formatted-text li {
+    margin-bottom: var(--spacing-xs);
+}
+
+.formatted-text a {
+    color: var(--primary);
+    text-decoration: underline;
+}
+
+.formatted-text a:hover {
+    color: var(--primary-dark);
+}
+
+.formatted-text blockquote {
+    border-left: 3px solid var(--medium-gray);
+    padding-left: var(--spacing-md);
+    margin-left: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    font-style: italic;
+    color: var(--dark-gray);
+}
+
+.formatted-text hr {
+    margin: var(--spacing-md) 0;
+    border: none;
+    border-top: 1px solid var(--medium-gray);
+}
+
+.formatted-text sup, 
+.formatted-text sub {
+    line-height: 0;
+}
+
+/* Plain text styling */
+.plain-text {
+    margin-bottom: var(--spacing-sm);
+}
+
+/* Améliorations pour les sections et sous-sections */
+.subsection {
+    margin: 1.5rem 0;
+    padding-left: 1rem;
+    border-left: 2px solid #e0e0e0;
+}
+
+.subsection h4 {
+    margin-bottom: 1rem;
+    color: #333;
+    font-size: 1.15rem;
+}
+
+.sub-subsection {
+    margin: 1.2rem 0;
+    padding-left: 1rem;
+    border-left: 1px solid #e0e0e0;
+}
+
+.sub-subsection h5 {
+    color: #444;
+    font-size: 1.05rem;
+    margin-bottom: 0.8rem;
+}
+
+/* Style pour le contenu des sections */
+.content-item {
+    margin-bottom: 1.5rem;
+}
+
+.plain-text {
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+/* Enhanced Formatting Styles */
+.formatted-text {
+    margin-bottom: 1rem;
+    line-height: 1.6;
+    word-wrap: break-word;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.indent-1 {
+    padding-left: 1.5rem;
+}
+
+.indent-2 {
+    padding-left: 3rem;
+}
+
+.indent-3 {
+    padding-left: 4.5rem;
+}
+
+.indent-4 {
+    padding-left: 6rem;
+}
+
+.list-bullet {
+    position: relative;
+    padding-left: 1.2rem;
+}
+
+.list-bullet:before {
+    content: '•';
+    position: absolute;
+    left: 0;
+}
+
+.list-numbered {
+    position: relative;
+    padding-left: 1.5rem;
+    counter-increment: item;
+}
+
+.list-numbered:before {
+    content: counter(item) '.';
+    position: absolute;
+    left: 0;
+}
+
+/* Enhanced table styles */
+.table-container {
+    margin: 1.5rem 0;
+    overflow-x: auto;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.table-caption {
+    background-color: var(--light-gray);
+    padding: 0.8rem;
+    font-weight: 600;
+    color: var(--black);
+    border: 1px solid #e0e0e0;
+    border-bottom: none;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+}
+
+.medicine-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+}
+
+.medicine-table th, 
+.medicine-table td {
+    padding: 0.8rem;
+    text-align: left;
+    border: 1px solid #e0e0e0;
+}
+
+.medicine-table thead th {
+    background-color: var(--primary-light);
+    color: var(--black);
+    font-weight: 600;
+}
+
+.medicine-table tbody th {
+    background-color: #f5f5f5;
+    font-weight: 600;
+}
+
+.medicine-table tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.medicine-table tr:hover {
+    background-color: #f0f0f0;
+}
+
+/* Comment section styles */
+.comment-form {
+    background-color: #f9f9f9;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+}
+
+.comment-form h4 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+.comment-form textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    resize: vertical;
+    font-family: inherit;
+}
+
+.comments-list {
+    margin-top: 30px;
+}
+
+.comments-list h4 {
+    font-size: 1.1rem;
+    margin-bottom: 20px;
+    color: #666;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+.comment {
+    padding: 15px;
+    margin-bottom: 20px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background-color: white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.comment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.comment-user {
+    display: flex;
+    align-items: center;
+}
+
+.comment-user i {
+    font-size: 1.5rem;
+    color: #666;
+    margin-right: 10px;
+}
+
+.comment-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.comment-date {
+    font-size: 0.8rem;
+    color: #999;
+}
+
+.comment-rating {
+    color: #ff9800;
+    font-size: 0.9rem;
+    margin-bottom: 5px;
+}
+
+.comment-content {
+    line-height: 1.5;
+    margin-bottom: 15px;
+}
+
+.comment-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.btn-edit-comment, .btn-delete-comment {
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 5px 10px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.btn-edit-comment:hover {
+    background-color: #e3f2fd;
+    color: #1976d2;
+}
+
+.btn-delete-comment:hover {
+    background-color: #ffebee;
+    color: #d32f2f;
+}
+
+.no-comments {
+    text-align: center;
+    padding: 30px 0;
+    color: #888;
+}
+
+.no-comments i {
+    font-size: 2rem;
+    margin-bottom: 10px;
+    opacity: 0.5;
+}
+
+.login-prompt {
+    text-align: center;
+    padding: 30px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    border: 1px dashed #ddd;
+}
+
+.login-prompt i {
+    font-size: 2rem;
+    margin-bottom: 15px;
+    color: #aaa;
+}
+
+.login-prompt a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.login-prompt a:hover {
+    text-decoration: underline;
+}
+
+/* Star rating styles */
+.rating {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+}
+
+.rating input {
+    display: none;
+}
+
+.rating label {
+    cursor: pointer;
+    width: 25px;
+    height: 25px;
+    margin: 0;
+    padding: 0;
+    font-size: 25px;
+    line-height: 25px;
+}
+
+.rating label:before {
+    content: '\2605'; /* ★ */
+    color: #ddd;
+    transition: color 0.3s;
+}
+
+.rating input:checked ~ label:before,
+.rating label:hover:before,
+.rating label:hover ~ label:before {
+    color: #ffd700; /* Gold */
+}
+
+.edit-comment-form {
+    margin-top: 15px;
+    padding: 15px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+}
+
+.edit-comment-form .form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.btn-secondary {
+    background-color: #e0e0e0;
+    color: #333;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.btn-secondary:hover {
+    background-color: #d0d0d0;
+}
+
+.delete-comment-form {
+    display: inline;
+}
+
+/* AI Summary Loading Spinner */
+.ai-loading {
+    padding: 30px 20px;
+    display: flex;
+    justify-content: center;
+}
+
+.loading-spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.spinner {
+    width: 60px;
+    height: 60px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid var(--primary);
+    border-radius: 50%;
+    animation: spin 1.2s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.load-status {
+    margin-top: 15px;
+    color: #666;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Style spécifique pour la section résumé AI */
+.ai-summary {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border-left: 3px solid var(--primary);
+    margin-bottom: var(--spacing-md);
+}
+
+.ai-summary-content {
+    line-height: 1.6;
+}
+
+.ai-summary-text p {
+    margin-bottom: var(--spacing-sm);
+}
+
+.ai-disclaimer {
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: 1px solid #eee;
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.ai-model {
+    display: block;
+    margin-top: 5px;
+    font-size: 0.8rem;
+    color: #999;
+}
+
+/* Responsive Design */
+@media screen and (max-width: 768px) {
+    .medicine-meta {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+    
+    .nav-tabs {
+        flex-wrap: wrap;
+    }
+    
+    .nav-tab {
+        flex: 1 1 auto;
+        text-align: center;
+        font-size: 0.9rem;
+        padding: var(--spacing-sm);
+    }
+
+    .table-container {
+        border-left: none;
+        padding-left: 0;
+    }
+    
+    .medicine-table {
+        font-size: 0.85rem;
+    }
+    
+    .medicine-table th,
+    .medicine-table td {
+        padding: 0.6rem;
+    }
+}
+
+@media screen and (max-width: 480px) {
+    .medicine-banner h2 {
+        font-size: 1.8rem;
+    }
+    
+    .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .debug-actions {
+        margin-top: var(--spacing-sm);
+    }
+    
+    .medicine-table {
+        display: block;
+        overflow-x: auto;
+    }
+}

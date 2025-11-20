@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ medicine['title'] }} - MedicSearch</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/medicine_details.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <style>
+        /* Medicine banner styling */
+        .medicine-banner {
+            background: linear-gradient(135deg, rgba(0, 123, 255, 0.9) 0%, rgba(0, 86, 179, 0.9) 100%);
+            color: white;
+            padding: 40px 0;
+            margin-bottom: 30px;
+            border-radius: 0 0 30px 30px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            /* Remove any potential red border or box */
+            border: none;
+        }
+        
+        /* Remove the ::after element */
+        .medicine-banner::after {
+            display: none;
+        }
+        
+        .medicine-banner h2 {
+            margin-bottom: 15px;
+            font-size: 2.2rem;
+        }
+        
+        .medicine-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 20px;
+            font-size: 0.95rem;
+        }
+        
+        .update-info, .source-url {
+            display: flex;
+            align-items: center;
+        }
+        
+        .source-url a {
+            color: white;
+            text-decoration: underline;
+        }
+        
+        .medicine-actions {
+            margin-top: 10px;
+        }
+        
+        /* Favorite button styling */
+        .favorite-icon-container {
+            display: flex;
+            align-items: center;
+            background-color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .favorite-icon-container:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        .favorite-icon {
+            font-size: 1.2rem;
+            margin-right: 8px;
+            transition: color 0.3s;
+        }
+        
+        .favorite-icon.favorited {
+            color: #e53935;
+        }
+        
+        .favorite-icon.not-favorited {
+            color: #e53935;
+        }
+        
+        .favorite-text {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        /* New layout with sidebar */
+        .medicine-content-container {
+            display: flex;
+            margin-top: 20px;
+        }
+        
+        .sidebar-navigation {
+            width: 280px;
+            flex-shrink: 0;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 20px 0;
+            max-height: calc(100vh - 200px);
+            overflow-y: auto;
+            position: sticky;
+            top: 20px;
+        }
+        
+        .section-content {
+            flex: 1;
+            margin-left: 30px;
+            max-width: calc(100% - 310px);
+        }
+        
+        .nav-sections {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .nav-section-item {
+            padding: 0;
+            margin: 0;
+        }
+        
+        .nav-section-link {
+            display: block;
+            padding: 12px 20px;
+            color: #333;
+            text-decoration: none;
+            border-left: 3px solid transparent;
+            transition: all 0.2s ease;
+            font-size: 0.95rem;
+        }
+        
+        .nav-section-link:hover {
+            background-color: #e9ecef;
+            border-left-color: #6c757d;
+        }
+        
+        .nav-section-link.active {
+            background-color: #e9ecef;
+            border-left-color: #007bff;
+            font-weight: 600;
+        }
+        
+        /* Special styling for AI summary */
+        .nav-section-link.ai-summary-nav {
+            background: linear-gradient(135deg, #9c27b0 0%, #e91e63 100%);
+            color: white;
+            border-left-color: #9c27b0;
+        }
+        
+        .nav-section-link.ai-summary-nav:hover,
+        .nav-section-link.ai-summary-nav.active {
+            background: linear-gradient(135deg, #7b1fa2 0%, #c2185b 100%);
+            border-left-color: #7b1fa2;
+        }
+        
+        .nav-section-link.comments-nav {
+            background-color: #f0f0f0;
+            border-bottom: 1px solid #ddd;
+            border-top: 1px solid #ddd;
+        }
+        
+        .nav-section-link.technical-nav {
+            background-color: #f0f0f0;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .section-content .content-card {
+            margin-bottom: 30px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .content-card .card-header {
+            background-color: #007bff;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* AI Summary card header should match the sidebar color */
+        .content-card .card-header.ai-header {
+            background: linear-gradient(135deg, #9c27b0 0%, #e91e63 100%);
+        }
+        
+        .content-card .card-body {
+            background-color: white;
+            padding: 20px;
+            border-radius: 0 0 12px 12px;
+        }
+        
+        /* Section anchor targets */
+        .section-anchor {
+            display: block;
+            position: relative;
+            top: -80px;
+            visibility: hidden;
+        }
+        
+        /* Tables and content formatting */
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+            margin-bottom: 20px;
+        }
+        
+        .medicine-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .medicine-table th,
+        .medicine-table td {
+            padding: 10px 15px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .medicine-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        .formatted-text, .plain-text {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+        
+        /* Comments section */
+        .comment-form {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .comment-form h4 {
+            margin-bottom: 15px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+        }
+        
+        .comment {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        
+        .comment-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        
+        .comment-user {
+            display: flex;
+            align-items: center;
+            font-weight: 600;
+        }
+        
+        .comment-user i {
+            margin-right: 8px;
+            color: #007bff;
+        }
+        
+        .comment-meta {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .comment-rating {
+            color: #ffc107;
+        }
+        
+        .comment-date {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        
+        .comment-content {
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+        
+        .comment-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn-edit-comment,
+        .btn-delete-comment {
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .btn-edit-comment {
+            background-color: #f0f0f0;
+            color: #333;
+        }
+        
+        .btn-delete-comment {
+            background-color: #ffebee;
+            color: #e53935;
+        }
+        
+        /* Debug section */
+        .debug-section {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            overflow: auto;
+            max-height: 500px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .debug-section pre {
+            font-family: "Courier New", monospace;
+            font-size: 0.9rem;
+        }
+        
+        .debug-toggle {
+            background-color: #e9ecef;
+            color: #495057;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        /* Data info sections */
+        .url-info, .data-info, .id-info {
+            margin-bottom: 10px;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        
+        .url-info a {
+            color: #007bff;
+        }
+        
+        /* No data messages */
+        .no-data-message {
+            background-color: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px;
+            color: #6c757d;
+        }
+        
+        .no-data-message i {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            opacity: 0.7;
+        }
+
+        /* Responsive design */
+        @media (max-width: 992px) {
+            .medicine-content-container {
+                flex-direction: column;
+            }
+            
+            .sidebar-navigation {
+                width: 100%;
+                margin-bottom: 20px;
+                position: static;
+            }
+            
+            .section-content {
+                margin-left: 0;
+                max-width: 100%;
+            }
+            
+            .medicine-meta {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+        }
+        
+        /* AI Summary styling */
+        .ai-summary {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            margin-top: 0;
+        }
+        
+        .ai-summary-content {
+            padding: 20px;
+        }
+        
+        .ai-disclaimer {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 15px;
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
+        }
+        
+        /* Sorting and results per page controls */
+        .results-controls {
+            display: none;
+        }
+
+        .content-card .card-header h3 {
+            color: white; /* Ensure section titles are white in the headers */
+        }
+        
+        .content-card .card-header h3 i {
+            color: white; /* Ensure icons are white in the headers */
+        }
+    </style>
+</head>
+<body>
+    {% with active_page='medicine' %}
+    {% include 'components/header.html' %}
+    {% endwith %}
+
+    <main>
+        <section class="medicine-banner">
+            <div class="container">
+                <h2>{{ medicine['title'] }}</h2>
+                <div class="medicine-meta">
+                    <span class="update-info">Mise à jour: {{ medicine['update_date'] }}</span>
+                    <span class="source-url">Source: <a href="{{ medicine['url'] }}" target="_blank">Base de données publique des médicaments</a></span>
+                    
+                    <!-- Icône de favoris avec texte et fond blanc -->
+                    {% if g.user %}
+                    <div class="medicine-actions">
+                        <div id="favorite-icon-container" class="favorite-icon-container">
+                            <i id="favorite-icon" class="favorite-icon {{ 'fas fa-heart favorited' if is_favorite else 'far fa-heart not-favorited' }}"></i>
+                            <span id="favorite-text" class="favorite-text">{{ "Retirer des favoris" if is_favorite else "Ajouter aux favoris" }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+
+        <section class="medicine-content">
+            <div class="container">
+                <!-- Medicine content with sidebar -->
+                <div class="medicine-content-container">
+                    <!-- Left sidebar navigation -->
+                    <div class="sidebar-navigation">
+                        <ul class="nav-sections">
+                            <!-- AI Summary -->
+                            <li class="nav-section-item">
+                                <a href="#section-ai-summary" class="nav-section-link ai-summary-nav">
+                                    <i class="fas fa-robot"></i> Résumé par IA
+                                </a>
+                            </li>
+                            
+                            <!-- General info section -->
+                            <li class="nav-section-item">
+                                <a href="#section-general-info" class="nav-section-link">
+                                    <i class="fas fa-info-circle"></i> Informations générales
+                                </a>
+                            </li>
+                            
+                            <!-- Document sections -->
+                            <!-- Pharmacogenomics section link -->
+                            <li class="nav-section-item">
+                                <a href="#section-pharmacogenomics" class="nav-section-link">
+                                    <i class="fas fa-dna"></i> Pharmacogénomique
+                                </a>
+                            </li>
+                            <!-- End pharmacogenomics link -->
+                            {% if medicine.get('sections') %}
+                                {% for section in medicine['sections'] %}
+                                    <li class="nav-section-item">
+                                        <a href="#section-{{ loop.index }}" class="nav-section-link">
+                                            {{ section['title'] }}
+                                        </a>
+                                    </li>
+                                {% endfor %}
+                            {% endif %}
+                            
+                            <!-- Comments section -->
+                            <li class="nav-section-item">
+                                <a href="#section-comments" class="nav-section-link comments-nav">
+                                    <i class="fas fa-comments"></i> Commentaires
+                                </a>
+                            </li>
+                            
+                            <!-- Technical data section -->
+                            <li class="nav-section-item">
+                                <a href="#section-technical-data" class="nav-section-link technical-nav">
+                                    <i class="fas fa-code"></i> Données techniques
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Right content area -->
+                    <div class="section-content">
+                        <!-- AI Summary Section -->
+                        <span class="section-anchor" id="section-ai-summary"></span>
+                        <div class="content-card">
+                            <div class="card-header ai-header">
+                                <h3><i class="fas fa-robot" style="margin-right: 10px;"></i>Résumé par IA</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="summary-section ai-summary" style="padding: 20px; background-color: #f8f9fa; border-radius: 8px; margin-top: 0;">
+                                    {% if medicine.ai_summary %}
+                                        <div class="ai-summary-content">
+                                            <div class="ai-summary-text">
+                                                {{ medicine.ai_summary|safe }}
+                                            </div>
+                                            <div class="ai-disclaimer" style="font-size: 0.8rem; color: #666; margin-top: 15px; border-top: 1px solid #ddd; padding-top: 10px;">
+                                                <i class="fas fa-info-circle"></i> Ce résumé est généré automatiquement et pourrait contenir des imprécisions. Consultez toujours un professionnel de santé.
+                                                <span class="ai-model">Modèle utilisé: mistral-small-latest</span>
+                                            </div>
+                                        </div>
+                                    {% else %}
+                                        <div class="ai-loading" id="ai-loading">
+                                            <div class="loading-spinner">
+                                                <div class="spinner"></div>
+                                                <p class="load-status">Génération du résumé en cours...</p>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- General Information Section -->
+                        <span class="section-anchor" id="section-general-info"></span>
+                        <div class="content-card">
+                            <div class="card-header">
+                                <h3>Informations générales</h3>
+                            </div>
+                            <div class="card-body">
+                                {% if medicine.get('medicine_details') %}
+                                    <div class="summary-section">
+                                        {% if medicine['medicine_details'].get('forme') %}
+                                            <div class="plain-text"><strong>Forme pharmaceutique:</strong> {{ medicine['medicine_details']['forme'] }}</div>
+                                        {% endif %}
+                                        
+                                        {% if medicine['medicine_details'].get('dosages') and medicine['medicine_details']['dosages']|length > 0 %}
+                                            <div class="plain-text"><strong>Dosage(s):</strong> 
+                                                {{ medicine['medicine_details']['dosages']|join(', ') }}
+                                            </div>
+                                        {% endif %}
+                                        
+                                        {% if medicine['medicine_details'].get('substances_actives') and medicine['medicine_details']['substances_actives']|length > 0 %}
+                                            <div class="plain-text"><strong>Substance(s) active(s):</strong>
+                                                {{ medicine['medicine_details']['substances_actives']|join(', ') }}
+                                            </div>
+                                        {% endif %}
+                                        
+                                        {% if medicine['medicine_details'].get('laboratoire') %}
+                                            <div class="plain-text"><strong>Laboratoire:</strong> {{ medicine['medicine_details']['laboratoire'] }}</div>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <div class="no-data-message">
+                                        <i class="fas fa-exclamation-circle"></i>
+                                        <p>Aucune information générale disponible pour ce médicament.</p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Pharmacogenomics Section -->
+                        <span class="section-anchor" id="section-pharmacogenomics"></span>
+                        <div class="content-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-dna" style="margin-right:10px;"></i>Pharmacogénomique</h3>
+                            </div>
+                            <div class="card-body">
+                                {% if medicine.get('pharmacogenomics') %}
+                                    {% set pg = medicine['pharmacogenomics'] %}
+                                    <div class="plain-text"><strong>Source PharmGKB ID:</strong> {{ pg.get('pharmgkb_id','N/A') }}</div>
+                                    {% if pg.get('vip_genes') and pg.vip_genes|length > 0 %}
+                                        <div class="plain-text"><strong>Gènes VIP:</strong> {{ pg.vip_genes|join(', ') }}</div>
+                                    {% endif %}
+
+                                    {% if pg.get('gene_interactions') and pg.gene_interactions|length > 0 %}
+                                        <div class="table-container">
+                                            <table class="medicine-table">
+                                                <thead>
+                                                    <tr><th>Gène</th><th>Symbole</th><th>Association</th><th>Evidence</th></tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for g in pg.gene_interactions %}
+                                                        <tr>
+                                                            <td>{{ g.get('gene_name') }}</td>
+                                                            <td>{{ g.get('symbol') }}</td>
+                                                            <td>{{ g.get('association') }}</td>
+                                                            <td>{{ g.get('evidence') }}</td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    {% endif %}
+
+                                    {% if pg.get('dosing_by_genotype') %}
+                                        <div class="content-card">
+                                            <div class="card-header"><h4>Recommandations de posologie par génotype</h4></div>
+                                            <div class="card-body">
+                                                {% for phenotype, rec in pg.dosing_by_genotype.items() %}
+                                                    <div class="plain-text"><strong>{{ phenotype }}:</strong> {{ rec }}</div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    {% endif %}
+
+                                    {% if pg.get('clinical_annotations') and pg.clinical_annotations|length > 0 %}
+                                        <div class="content-card">
+                                            <div class="card-header"><h4>Annotations cliniques</h4></div>
+                                            <div class="card-body">
+                                                {% for ann in pg.clinical_annotations %}
+                                                    <div class="plain-text"><strong>{{ ann.name or ann.accession_id }}</strong>
+                                                        <div>{{ ann.phenotype_category }}</div>
+                                                        {% if ann.references %}
+                                                            <div class="plain-text"><em>Références:</em> {{ ann.references|map(attribute='title')|join(', ') }}</div>
+                                                        {% endif %}
+                                                    </div>
+                                                    <hr>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                {% else %}
+                                    <div class="no-data-message">
+                                        <i class="fas fa-info-circle"></i>
+                                        <p>Aucune donnée pharmacogénomique disponible pour ce médicament.</p>
+                                        <p>Vous pouvez lancer l'enrichissement PharmGKB depuis l'administration pour remplir cette section.</p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Document Sections -->
+                        {% if medicine.get('sections') %}
+                            {% for section in medicine['sections'] %}
+                                <span class="section-anchor" id="section-{{ loop.index }}"></span>
+                                <div class="content-card">
+                                    <div class="card-header">
+                                        <h3>{{ section['title'] }}</h3>
+                                    </div>
+                                    
+                                    <div class="card-body">
+                                        {% if section.get('content') and section['content']|length > 0 %}
+                                            <div class="content-item">
+                                                {% for content_item in section['content'] %}
+                                                    {% if content_item.get('table') %}
+                                                        <div class="table-container">
+                                                            {% if content_item.get('caption') %}
+                                                                <div class="table-caption">{{ content_item['caption'] }}</div>
+                                                            {% else %}
+                                                                <div class="table-caption">Tableau de données</div>
+                                                            {% endif %}
+                                                            <table class="medicine-table">
+                                                                {% if content_item.get('headers') %}
+                                                                    <thead>
+                                                                        <tr>
+                                                                            {% for header in content_item['headers'] %}
+                                                                                <th>{{ header }}</th>
+                                                                            {% endfor %}
+                                                                        </tr>
+                                                                    </thead>
+                                                                {% endif %}
+                                                                <tbody>
+                                                                    {% for row in content_item['table'] %}
+                                                                        <tr>
+                                                                            {% for cell in row %}
+                                                                                {% if loop.index == 1 and not content_item.get('headers') %}
+                                                                                    <th>{{ cell }}</th>
+                                                                                {% else %}
+                                                                                    <td>{{ cell }}</td>
+                                                                                {% endif %}
+                                                                            {% endfor %}
+                                                                        </tr>
+                                                                    {% endfor %}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    {% elif content_item.get('text') %}
+                                                        <div class="formatted-text 
+                                                            {% if content_item.get('formatting', {}).get('alignment') != 'left' %}text-{{ content_item.get('formatting', {}).get('alignment') }}{% endif %}
+                                                            {% if content_item.get('formatting', {}).get('list_type') %}list-{{ content_item.get('formatting', {}).get('list_type') }}{% endif %}
+                                                            {% if content_item.get('formatting', {}).get('indent') %}indent-{{ content_item.get('formatting', {}).get('indent') }}{% endif %}">
+                                                            {% if content_item.get('formatting', {}).get('bold') and content_item.get('formatting', {}).get('italic') and content_item.get('formatting', {}).get('underline') %}
+                                                                <strong><em><u>{{ content_item['text'] }}</u></em></strong>
+                                                            {% elif content_item.get('formatting', {}).get('bold') and content_item.get('formatting', {}).get('italic') %}
+                                                                <strong><em>{{ content_item['text'] }}</em></strong>
+                                                            {% elif content_item.get('formatting', {}).get('bold') and content_item.get('formatting', {}).get('underline') %}
+                                                                <strong><u>{{ content_item['text'] }}</u></strong>
+                                                            {% elif content_item.get('formatting', {}).get('italic') and content_item.get('formatting', {}).get('underline') %}
+                                                                <em><u>{{ content_item['text'] }}</u></em>
+                                                            {% elif content_item.get('formatting', {}).get('bold') %}
+                                                                <strong>{{ content_item['text'] }}</strong>
+                                                            {% elif content_item.get('formatting', {}).get('italic') %}
+                                                                <em>{{ content_item['text'] }}</em>
+                                                            {% elif content_item.get('formatting', {}).get('underline') %}
+                                                                <u>{{ content_item['text'] }}</u>
+                                                            {% else %}
+                                                                {{ content_item['text'] }}
+                                                            {% endif %}
+                                                        </div>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                        
+                                        {% if section.get('subsections') and section['subsections']|length > 0 %}
+                                            {% for subsection in section['subsections'] %}
+                                                <div class="subsection">
+                                                    <h4>{{ subsection['title'] }}</h4>
+                                                    {% for content_item in subsection['content'] %}
+                                                        {% if content_item.get('table') %}
+                                                            <div class="table-container">
+                                                                {% if content_item.get('caption') %}
+                                                                    <div class="table-caption">{{ content_item['caption'] }}</div>
+                                                                {% else %}
+                                                                    <div class="table-caption">Tableau de données</div>
+                                                                {% endif %}
+                                                                <table class="medicine-table">
+                                                                    {% if content_item.get('headers') %}
+                                                                        <thead>
+                                                                            <tr>
+                                                                                {% for header in content_item['headers'] %}
+                                                                                    <th>{{ header }}</th>
+                                                                                {% endfor %}
+                                                                            </tr>
+                                                                        </thead>
+                                                                    {% endif %}
+                                                                    <tbody>
+                                                                        {% for row in content_item['table'] %}
+                                                                            <tr>
+                                                                                {% for cell in row %}
+                                                                                    {% if loop.index == 1 and not content_item.get('headers') %}
+                                                                                        <th>{{ cell }}</th>
+                                                                                    {% else %}
+                                                                                        <td>{{ cell }}</td>
+                                                                                    {% endif %}
+                                                                                {% endfor %}
+                                                                            </tr>
+                                                                        {% endfor %}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        {% elif content_item.get('text') %}
+                                                            <div class="formatted-text 
+                                                                {% if content_item.get('formatting', {}).get('alignment') != 'left' %}text-{{ content_item.get('formatting', {}).get('alignment') }}{% endif %}
+                                                                {% if content_item.get('formatting', {}).get('list_type') %}list-{{ content_item.get('formatting', {}).get('list_type') }}{% endif %}
+                                                                {% if content_item.get('formatting', {}).get('indent') %}indent-{{ content_item.get('formatting', {}).get('indent') }}{% endif %}">
+                                                                {% if content_item.get('formatting', {}).get('bold') and content_item.get('formatting', {}).get('italic') and content_item.get('formatting', {}).get('underline') %}
+                                                                    <strong><em><u>{{ content_item['text'] }}</u></em></strong>
+                                                                {% elif content_item.get('formatting', {}).get('bold') and content_item.get('formatting', {}).get('italic') %}
+                                                                    <strong><em>{{ content_item['text'] }}</em></strong>
+                                                                {% elif content_item.get('formatting', {}).get('bold') and content_item.get('formatting', {}).get('underline') %}
+                                                                    <strong><u>{{ content_item['text'] }}</u></strong>
+                                                                {% elif content_item.get('formatting', {}).get('italic') and content_item.get('formatting', {}).get('underline') %}
+                                                                    <em><u>{{ content_item['text'] }}</u></em>
+                                                                {% elif content_item.get('formatting', {}).get('bold') %}
+                                                                    <strong>{{ content_item['text'] }}</strong>
+                                                                {% elif content_item.get('formatting', {}).get('italic') %}
+                                                                    <em>{{ content_item['text'] }}</em>
+                                                                {% elif content_item.get('formatting', {}).get('underline') %}
+                                                                    <u>{{ content_item['text'] }}</u>
+                                                                {% else %}
+                                                                    {{ content_item['text'] }}
+                                                                {% endif %}
+                                                            </div>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                    
+                                                    {% if subsection.get('subsections') and subsection['subsections']|length > 0 %}
+                                                        {% for sub_subsection in subsection['subsections'] %}
+                                                            <div class="sub-subsection">
+                                                                <h5>{{ sub_subsection['title'] }}</h5>
+                                                                {% for content_item in sub_subsection['content'] %}
+                                                                    {% if content_item.get('table') %}
+                                                                        <div class="table-container">
+                                                                            {% if content_item.get('caption') %}
+                                                                                <div class="table-caption">{{ content_item['caption'] }}</div>
+                                                                            {% else %}
+                                                                                <div class="table-caption">Tableau de données</div>
+                                                                            {% endif %}
+                                                                            <table class="medicine-table">
+                                                                                {% if content_item.get('headers') %}
+                                                                                    <thead>
+                                                                                        <tr>
+                                                                                            {% for header in content_item['headers'] %}
+                                                                                                <th>{{ header }}</th>
+                                                                                            {% endfor %}
+                                                                                        </tr>
+                                                                                    </thead>
+                                                                                {% endif %}
+                                                                                <tbody>
+                                                                                    {% for row in content_item['table'] %}
+                                                                                        <tr>
+                                                                                            {% for cell in row %}
+                                                                                                {% if loop.index == 1 and not content_item.get('headers') %}
+                                                                                                    <th>{{ cell }}</th>
+                                                                                                {% else %}
+                                                                                                    <td>{{ cell }}</td>
+                                                                                                {% endif %}
+                                                                                            {% endfor %}
+                                                                                        </tr>
+                                                                                    {% endfor %}
+                                                                                </tbody>
+                                                                            </table>
+                                                                        </div>
+                                                                    {% elif content_item.get('text') %}
+                                                                        <div class="formatted-text 
+                                                                            {% if content_item.get('formatting', {}).get('alignment') != 'left' %}text-{{ content_item.get('formatting', {}).get('alignment') }}{% endif %}
+                                                                            {% if content_item.get('formatting', {}).get('list_type') %}list-{{ content_item.get('formatting', {}).get('list_type') }}{% endif %}
+                                                                            {% if content_item.get('formatting', {}).get('indent') %}indent-{{ content_item.get('formatting', {}).get('indent') }}{% endif %}">
+                                                                            {% if content_item.get('formatting', {}).get('bold', False) and content_item.get('formatting', {}).get('italic', False) and content_item.get('formatting', {}).get('underline', False) %}
+                                                                                <strong><em><u>{{ content_item['text'] }}</u></em></strong>
+                                                                            {% elif content_item.get('formatting', {}).get('bold', False) and content_item.get('formatting', {}).get('italic', False) %}
+                                                                                <strong><em>{{ content_item['text'] }}</em></strong>
+                                                                            {% elif content_item.get('formatting', {}).get('bold', False) and content_item.get('formatting', {}).get('underline', False) %}
+                                                                                <strong><u>{{ content_item['text'] }}</u></strong>
+                                                                            {% elif content_item.get('formatting', {}).get('italic', False) and content_item.get('formatting', {}).get('underline', False) %}
+                                                                                <em><u>{{ content_item['text'] }}</u></em>
+                                                                            {% elif content_item.get('formatting', {}).get('bold', False) %}
+                                                                                <strong>{{ content_item['text'] }}</strong>
+                                                                            {% elif content_item.get('formatting', {}).get('italic', False) %}
+                                                                                <em>{{ content_item['text'] }}</em>
+                                                                            {% elif content_item.get('formatting', {}).get('underline', False) %}
+                                                                                <u>{{ content_item['text'] }}</u>
+                                                                            {% else %}
+                                                                                {{ content_item['text'] }}
+                                                                            {% endif %}
+                                                                        </div>
+                                                                    {% endif %}
+                                                                {% endfor %}
+                                                            </div>
+                                                        {% endfor %}
+                                                    {% endif %}
+                                                </div>
+                                            {% endfor %}
+                                        {% endif %}
+                                        
+                                        {% if (not section.get('content') or section['content']|length == 0) and (not section.get('subsections') or section['subsections']|length == 0) %}
+                                            <div class="no-data-message">
+                                                <i class="fas fa-info-circle"></i>
+                                                <p>Cette section ne contient pas de contenu.</p>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                        
+                        <!-- Comments Section -->
+                        <span class="section-anchor" id="section-comments"></span>
+                        <div class="content-card">
+                            <div class="card-header">
+                                <h3>Commentaires sur ce médicament</h3>
+                            </div>
+                            <div class="card-body">
+                                {% if g.user %}
+                                    <!-- Formulaire pour ajouter un commentaire -->
+                                    <div class="comment-form">
+                                        <h4>Ajouter un commentaire</h4>
+                                        <form action="{{ url_for('users.add_comment', medicine_id=medicine._id) }}" method="POST">
+                                            <div class="form-group">
+                                                <label for="rating">Note (optionnelle):</label>
+                                                <div class="rating">
+                                                    <input type="radio" id="star5" name="rating" value="5" /><label for="star5"></label>
+                                                    <input type="radio" id="star4" name="rating" value="4" /><label for="star4"></label>
+                                                    <input type="radio" id="star3" name="rating" value="3" /><label for="star3"></label>
+                                                    <input type="radio" id="star2" name="rating" value="2" /><label for="star2"></label>
+                                                    <input type="radio" id="star1" name="rating" value="1" /><label for="star1"></label>
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <textarea name="content" id="comment" rows="4" required placeholder="Partagez votre expérience ou vos connaissances concernant ce médicament..."></textarea>
+                                            </div>
+                                            <div class="form-actions">
+                                                <button type="submit" class="btn-primary">Publier</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                {% else %}
+                                    <div class="login-prompt">
+                                        <i class="fas fa-lock"></i>
+                                        <p>Vous devez être <a href="{{ url_for('users.login', next=request.path) }}">connecté</a> pour ajouter un commentaire.</p>
+                                    </div>
+                                {% endif %}
+                                
+                                <!-- Liste des commentaires -->
+                                <div class="comments-list">
+                                    <h4>{{ comments|length }} commentaire{% if comments|length != 1 %}s{% endif %}</h4>
+                                    {% if comments %}
+                                        {% for comment in comments %}
+                                            <div class="comment" id="comment-{{ comment._id }}">
+                                                <div class="comment-header">
+                                                    <div class="comment-user">
+                                                        <i class="fas fa-user-circle"></i>
+                                                        <span>
+                                                            {% if 'user' in comment %}
+                                                                {{ comment.user.first_name }} {{ comment.user.last_name }}
+                                                            {% else %}
+                                                                Utilisateur anonyme
+                                                            {% endif %}
+                                                        </span>
+                                                    </div>
+                                                    <div class="comment-meta">
+                                                        {% if comment.rating %}
+                                                            <div class="comment-rating">
+                                                                {% for i in range(5) %}
+                                                                    {% if i < comment.rating %}
+                                                                        <i class="fas fa-star"></i>
+                                                                    {% else %}
+                                                                        <i class="far fa-star"></i>
+                                                                    {% endif %}
+                                                                {% endfor %}
+                                                            </div>
+                                                        {% endif %}
+                                                        <div class="comment-date" title="{{ comment.timestamp }}">
+                                                            {{ comment.timestamp.strftime('%d/%m/%Y') }}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="comment-content">
+                                                    {{ comment.content }}
+                                                </div>
+                                                {% if g.user and (g.user._id|string == comment.user_id|string or g.user.role >= 4) %}
+                                                    <div class="comment-actions">
+                                                        <button class="btn-edit-comment" onclick="showEditCommentForm('{{ comment._id }}')">
+                                                            <i class="fas fa-edit"></i> Modifier
+                                                        </button>
+                                                        <form class="delete-comment-form" action="{{ url_for('users.delete_comment', comment_id=comment._id) }}" method="POST" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer ce commentaire?')">
+                                                            <input type="hidden" name="medicine_id" value="{{ medicine._id }}">
+                                                            <button type="submit" class="btn-delete-comment">
+                                                                <i class="fas fa-trash"></i> Supprimer
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                    
+                                                    <!-- Formulaire d'édition (caché par défaut) -->
+                                                    <div id="edit-form-{{ comment._id }}" class="edit-comment-form" style="display: none;">
+                                                        <form action="{{ url_for('users.edit_comment', comment_id=comment._id) }}" method="POST">
+                                                            <input type="hidden" name="medicine_id" value="{{ medicine._id }}">
+                                                            <div class="form-group">
+                                                                <label for="edit-rating-{{ comment._id }}">Note:</label>
+                                                                <div class="rating edit-rating">
+                                                                    {% for i in range(5, 0, -1) %}
+                                                                        <input type="radio" id="edit-star{{ i }}-{{ comment._id }}" name="rating" value="{{ i }}" {% if comment.rating == i %}checked{% endif %} />
+                                                                        <label for="edit-star{{ i }}-{{ comment._id }}"></label>
+                                                                    {% endfor %}
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <textarea name="content" rows="4" required>{{ comment.content }}</textarea>
+                                                            </div>
+                                                            <div class="form-actions">
+                                                                <button type="submit" class="btn-primary">Mettre à jour</button>
+                                                                <button type="button" class="btn-secondary" onclick="hideEditCommentForm('{{ comment._id }}')">Annuler</button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        {% endfor %}
+                                    {% else %}
+                                        <div class="no-comments">
+                                            <i class="fas fa-comment-slash"></i>
+                                            <p>Aucun commentaire pour le moment. Soyez le premier à donner votre avis!</p>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Technical Data Section -->
+                        <span class="section-anchor" id="section-technical-data"></span>
+                        <div class="content-card">
+                            <div class="card-header">
+                                <h3>Données techniques</h3>
+                                <div class="debug-actions">
+                                    <button class="debug-toggle" onclick="toggleDebug()">
+                                        <i class="fas fa-code"></i> Afficher JSON
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="debug-section" id="debug-section">
+                                    {% if medicine_json %}
+                                        <pre>{{ medicine_json }}</pre>
+                                    {% else %}
+                                        <div class="no-data-message">
+                                            <i class="fas fa-info-circle"></i>
+                                            <p>Aucune donnée technique disponible pour ce médicament.</p>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="url-info">
+                                    <i class="fas fa-link"></i> URL source: 
+                                    <a href="{{ medicine['url'] }}" target="_blank" rel="noopener noreferrer">
+                                        {{ medicine['url'] }}
+                                    </a>
+                                </div>
+                                
+                                <div class="data-info">
+                                    <i class="fas fa-database"></i> Base de données: medicine_data33.medicines
+                                </div>
+                                
+                                <div class="id-info">
+                                    <i class="fas fa-fingerprint"></i> ID du document: {{ medicine['_id'] }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    {% with now=now|default({"year": 2025}) %}
+    {% include 'components/footer.html' %}
+    {% endwith %}
+    
+    <script>
+        function toggleDebug() {
+            const debugSection = document.getElementById('debug-section');
+            if (debugSection.style.display === 'none' || !debugSection.style.display) {
+                debugSection.style.display = 'block';
+                document.querySelector('.debug-toggle').innerHTML = '<i class="fas fa-code"></i> Masquer JSON';
+            } else {
+                debugSection.style.display = 'none';
+                document.querySelector('.debug-toggle').innerHTML = '<i class="fas fa-code"></i> Afficher JSON';
+            }
+        }
+        
+        function showTab(tabId) {
+            // Masquer tous les contenus d'onglets
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Désactiver tous les onglets
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Activer l'onglet cliqué
+            document.getElementById(tabId).classList.add('active');
+            
+            // Trouver l'élément cliqué et l'activer
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                if (tab.textContent.toLowerCase().includes(tabId.replace('-', ' '))) {
+                    tab.classList.add('active');
+                }
+            });
+        }
+        
+        // Functions for comment editing
+        function showEditCommentForm(commentId) {
+            document.getElementById(`edit-form-${commentId}`).style.display = 'block';
+        }
+        
+        function hideEditCommentForm(commentId) {
+            document.getElementById(`edit-form-${commentId}`).style.display = 'none';
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const favoriteIcon = document.getElementById('favorite-icon');
+            const favoriteText = document.getElementById('favorite-text');
+            const favoriteContainer = document.getElementById('favorite-icon-container');
+            
+            if (favoriteContainer) {
+                favoriteContainer.addEventListener('click', function() {
+                    // Vérifier si l'utilisateur est connecté
+                    {% if g.user %}
+                        // Appel API pour basculer l'état du favori
+                        fetch('/api/toggle-favorite/{{ medicine._id }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            }
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                // Mettre à jour l'apparence de l'icône
+                                if (data.is_favorite) {
+                                    favoriteIcon.classList.remove('far', 'not-favorited');
+                                    favoriteIcon.classList.add('fas', 'favorited');
+                                    favoriteText.textContent = "Retirer des favoris";
+                                } else {
+                                    favoriteIcon.classList.remove('fas', 'favorited');
+                                    favoriteIcon.classList.add('far', 'not-favorited');
+                                    favoriteText.textContent = "Ajouter aux favoris";
+                                }
+                            } else {
+                                alert("Erreur: " + data.message);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Erreur:', error);
+                            alert("Une erreur s'est produite lors de l'ajout aux favoris.");
+                        });
+                    {% else %}
+                        // Rediriger vers la page de connexion
+                        window.location.href = "{{ url_for('users.login') }}?next={{ request.path }}";
+                    {% endif %}
+                });
+            }
+
+            // Check if we need to load the AI summary
+            const aiLoading = document.getElementById('ai-loading');
+            if (aiLoading) {
+                let attempts = 0;
+                const maxAttempts = 10;
+                
+                const loadStatus = aiLoading.querySelector('.load-status');
+                
+                const checkSummary = function() {
+                    attempts++;
+                    if (attempts <= maxAttempts) {
+                        loadStatus.textContent = `Génération en cours... (${attempts}/${maxAttempts})`;
+                        
+                        // Make an AJAX request to get the current summary
+                        fetch('/api/medicine-summary/{{ medicine._id }}')
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.summary) {
+                                    // Replace the loading element with the summary
+                                    const aiSummarySection = document.querySelector('.ai-summary');
+                                    aiSummarySection.innerHTML = `
+                                        <div class="ai-summary-content">
+                                            <div class="ai-summary-text">
+                                                ${data.summary}
+                                            </div>
+                                            <div class="ai-disclaimer" style="font-size: 0.8rem; color: #666; margin-top: 15px; border-top: 1px solid #ddd; padding-top: 10px;">
+                                                <i class="fas fa-info-circle"></i> Ce résumé est généré automatiquement et pourrait contenir des imprécisions. Consultez toujours un professionnel de santé.
+                                                <span class="ai-model">Modèle utilisé: mistral-small-latest</span>
+                                            </div>
+                                        </div>
+                                    `;
+                                } else if (attempts < maxAttempts) {
+                                    // If no summary yet and we haven't reached max attempts, try again in 5 seconds
+                                    setTimeout(checkSummary, 5000);
+                                } else {
+                                    // Max attempts reached, show error
+                                    loadStatus.textContent = "La génération du résumé a pris trop de temps. Veuillez rafraîchir la page.";
+                                    loadStatus.style.color = "#d32f2f";
+                                    aiLoading.querySelector('.spinner').style.display = 'none';
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error checking summary:', error);
+                                if (attempts < maxAttempts) {
+                                    // Try again in case of network error
+                                    setTimeout(checkSummary, 5000);
+                                } else {
+                                    loadStatus.textContent = "Erreur lors de la récupération du résumé.";
+                                    loadStatus.style.color = "#d32f2f";
+                                    aiLoading.querySelector('.spinner').style.display = 'none';
+                                }
+                            });
+                    }
+                };
+                
+                // Start checking after 1 second
+                setTimeout(checkSummary, 1000);
+            }
+
+            // Highlight active section in sidebar based on scroll position
+            document.querySelectorAll('.nav-section-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const targetId = this.getAttribute('href');
+                    const targetElement = document.querySelector(targetId);
+                    
+                    if (targetElement) {
+                        // Scroll to section with offset for fixed header
+                        window.scrollTo({
+                            top: targetElement.offsetTop + 80,
+                            behavior: 'smooth'
+                        });
+                        
+                        // Update active link in navigation
+                        document.querySelectorAll('.nav-section-link').forEach(link => {
+                            link.classList.remove('active');
+                        });
+                        this.classList.add('active');
+                    }
+                });
+            });
+            
+            // Highlight active section on scroll
+            window.addEventListener('scroll', function() {
+                const scrollPosition = window.scrollY;
+                
+                document.querySelectorAll('.section-anchor').forEach(anchor => {
+                    const section = anchor.nextElementSibling;
+                    const sectionTop = section.offsetTop;
+                    const sectionHeight = section.offsetHeight;
+                    
+                    if (scrollPosition >= sectionTop - 100 && scrollPosition < sectionTop + sectionHeight - 100) {
+                        const currentId = anchor.getAttribute('id');
+                        document.querySelectorAll('.nav-section-link').forEach(link => {
+                            link.classList.remove('active');
+                            if (link.getAttribute('href') === '#' + currentId) {
+                                link.classList.add('active');
+                            }
+                        });
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

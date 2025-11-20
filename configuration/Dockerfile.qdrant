@@ -1,0 +1,7 @@
+FROM qdrant/qdrant:v1.11.0
+
+USER root
+RUN apt-get update && apt-get install -y curl
+# Ne pas changer d'utilisateur car il n'existe pas dans l'image de base
+
+EXPOSE 6333 6334

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MEDICSEARCH • Inscription</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+</head>
+<body>
+    {% with active_page='register' %}
+    {% include 'components/header.html' %}
+    {% endwith %}
+
+    <main>
+        <section class="auth-section">
+            <div class="container">
+                <div class="auth-container register-container">
+                    <div class="auth-header">
+                        <h2><i class="fas fa-user-plus"></i> CRÉER UN COMPTE</h2>
+                        <p class="auth-subtitle">Rejoignez la communauté MEDICSEARCH</p>
+                    </div>
+                    
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }}">
+                                    <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }}"></i>
+                                    {{ message }}
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    
+                    <form class="auth-form" method="POST" action="{{ url_for('users.register') }}">
+                        <div class="form-section">
+                            <h3 class="section-title"><i class="fas fa-id-card"></i> INFORMATIONS PRINCIPALES</h3>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="email">ADRESSE EMAIL <span class="required">*</span></label>
+                                    <input type="email" id="email" name="email" placeholder="Votre adresse email" required>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row two-columns">
+                                <div class="form-group">
+                                    <label for="first_name">PRÉNOM <span class="required">*</span></label>
+                                    <input type="text" id="first_name" name="first_name" placeholder="Votre prénom" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="last_name">NOM <span class="required">*</span></label>
+                                    <input type="text" id="last_name" name="last_name" placeholder="Votre nom" required>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row two-columns">
+                                <div class="form-group">
+                                    <label for="password">MOT DE PASSE <span class="required">*</span></label>
+                                    <div class="password-input-container">
+                                        <input type="password" id="password" name="password" placeholder="Votre mot de passe" required>
+                                        <span class="toggle-password" onclick="togglePasswordVisibility('password')">
+                                            <i class="far fa-eye"></i>
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="confirm_password">CONFIRMER <span class="required">*</span></label>
+                                    <div class="password-input-container">
+                                        <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirmer le mot de passe" required>
+                                        <span class="toggle-password" onclick="togglePasswordVisibility('confirm_password')">
+                                            <i class="far fa-eye"></i>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="role">TYPE D'UTILISATEUR <span class="required">*</span></label>
+                                <select id="role" name="role" required>
+                                    <option value="" disabled selected>Choisir un type d'utilisateur</option>
+                                    <option value="1">Patient</option>
+                                    <option value="2">Professionnel de santé</option>
+                                    <option value="3">Chercheur</option>
+                                    <option value="5">Particulier</option>
+                                    <option value="6">Étudiant</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Champs optionnels -->
+                        <div class="form-section optional-fields">
+                            <h3 class="section-title">
+                                <i class="fas fa-info-circle"></i> INFORMATIONS COMPLÉMENTAIRES
+                                <span class="optional-tag">Optionnel</span>
+                            </h3>
+                            
+                            <div class="form-row two-columns">
+                                <div class="form-group">
+                                    <label for="age">ÂGE</label>
+                                    <input type="number" id="age" name="age" min="18" max="120" placeholder="Votre âge">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="profession">PROFESSION</label>
+                                    <input type="text" id="profession" name="profession" placeholder="Votre profession">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group company-field" style="display: none;">
+                                <label for="company">ÉTABLISSEMENT/SOCIÉTÉ</label>
+                                <input type="text" id="company" name="company" placeholder="Nom de l'établissement ou de la société">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group terms">
+                            <input type="checkbox" id="terms" name="terms" required>
+                            <label for="terms">J'ACCEPTE LES <a href="#" class="terms-link">CONDITIONS GÉNÉRALES D'UTILISATION</a></label>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="submit" class="btn-primary">
+                                <i class="fas fa-user-plus"></i> CRÉER MON COMPTE
+                            </button>
+                        </div>
+                        
+                        <div class="auth-links">
+                            <span>DÉJÀ INSCRIT ?</span>
+                            <a href="{{ url_for('users.login') }}" class="auth-link">
+                                <i class="fas fa-sign-in-alt"></i> SE CONNECTER
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    {% with now=now|default({"year": 2023}) %}
+    {% include 'components/footer.html' %}
+    {% endwith %}
+    
+    <style>
+        .required {
+            color: #e53935;
+            font-weight: bold;
+        }
+        
+        .form-section {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+        }
+        
+        .section-title {
+            font-size: 1rem;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+            color: #333;
+        }
+        
+        .form-row {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        @media (min-width: 768px) {
+            .form-row.two-columns {
+                flex-direction: row;
+            }
+            
+            .form-row.two-columns .form-group {
+                width: 48%;
+            }
+        }
+        
+        .optional-fields {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+        
+        .optional-tag {
+            font-size: 0.8rem;
+            background-color: #e0e0e0;
+            padding: 3px 8px;
+            border-radius: 12px;
+            color: #666;
+            margin-left: 10px;
+            font-weight: normal;
+        }
+        
+        .terms-link {
+            color: var(--primary);
+            text-decoration: underline;
+        }
+        
+        .auth-subtitle {
+            color: #666;
+            margin-top: -10px;
+            margin-bottom: 25px;
+            font-size: 0.9rem;
+        }
+        
+        .password-input-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            cursor: pointer;
+            color: #777;
+        }
+        
+        .register-container {
+            max-width: 700px;
+        }
+    </style>
+    
+    <script>
+        // Afficher le champ "company" uniquement pour les professionnels
+        document.getElementById('role').addEventListener('change', function() {
+            const companyField = document.querySelector('.company-field');
+            if (this.value === '2') {  // Professionnel de santé
+                companyField.style.display = 'block';
+            } else {
+                companyField.style.display = 'none';
+            }
+        });
+        
+        // Fonction pour basculer la visibilité du mot de passe
+        function togglePasswordVisibility(inputId) {
+            const passwordInput = document.getElementById(inputId);
+            const toggleIcon = document.querySelector(`#${inputId} + .toggle-password i`) || 
+                               document.querySelector(`#${inputId}`).parentElement.querySelector('.toggle-password i');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.classList.remove('fa-eye');
+                toggleIcon.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.classList.remove('fa-eye-slash');
+                toggleIcon.classList.add('fa-eye');
+            }
+        }
+    </script>
+</body>
+</html>

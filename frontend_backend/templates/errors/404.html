@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page Non Trouvée - MedicSearch</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <style>
+        .error-container {
+            text-align: center;
+            padding: 80px 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .error-code {
+            font-size: 120px;
+            font-weight: bold;
+            color: #e53935;
+            margin: 0;
+            line-height: 1;
+        }
+        
+        .error-message {
+            font-size: 24px;
+            margin: 20px 0;
+            color: #333;
+        }
+        
+        .error-description {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        .error-actions {
+            margin-top: 30px;
+        }
+        
+        .btn-home {
+            background-color: #e53935;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: bold;
+            display: inline-block;
+            transition: background-color 0.3s;
+        }
+        
+        .btn-home:hover {
+            background-color: #c62828;
+        }
+        
+        .error-icon {
+            font-size: 80px;
+            color: #e53935;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    {% with active_page=None %}
+    {% include 'components/header.html' %}
+    {% endwith %}
+
+    <main>
+        <div class="error-container">
+            <i class="fas fa-exclamation-triangle error-icon"></i>
+            <h1 class="error-code">404</h1>
+            <h2 class="error-message">Page Non Trouvée</h2>
+            <p class="error-description">
+                Désolé, la page que vous recherchez n'existe pas ou a été déplacée.
+                Le médicament que vous cherchez n'est peut-être pas dans notre base de données.
+            </p>
+            <div class="error-actions">
+                <a href="{{ url_for('index') }}" class="btn-home">Retour à l'accueil</a>
+            </div>
+        </div>
+    </main>
+
+    {% with now=now|default({"year": 2025}) %}
+    {% include 'components/footer.html' %}
+    {% endwith %}
+</body>
+</html>

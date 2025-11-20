@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MEDICSEARCH • Mon profil</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <style>
+        .profile-container {
+            max-width: 800px;
+        }
+        
+        .profile-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #e53935, #c62828);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            margin-right: 25px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .profile-info h3 {
+            margin: 0 0 10px 0;
+            font-size: 1.8rem;
+            color: #333;
+        }
+        
+        .profile-email {
+            color: #666;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .profile-role {
+            display: inline-block;
+            padding: 4px 12px;
+            background-color: #e9ecef;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            color: #495057;
+            margin-top: 8px;
+            font-weight: 500;
+        }
+        
+        .profile-section {
+            margin-bottom: 35px;
+            padding: 25px;
+            border-radius: 10px;
+            background-color: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+        
+        .profile-section:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            transform: translateY(-2px);
+        }
+        
+        .profile-section:last-child {
+            border-bottom: none;
+            margin-bottom: 10px;
+        }
+        
+        .profile-section h4 {
+            margin: 0 0 20px 0;
+            font-size: 1.25rem;
+            color: var(--primary, #e53935);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .profile-section p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 20px;
+            color: #777;
+            background-color: #f9f9f9;
+            border-radius: 6px;
+        }
+
+        .empty-state i {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            opacity: 0.5;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .btn-profile {
+            padding: 8px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary-outline {
+            background-color: transparent;
+            color: var(--primary, #e53935);
+            border: 1px solid var(--primary, #e53935);
+        }
+        
+        .btn-primary-outline:hover {
+            background-color: rgba(229, 57, 53, 0.1);
+        }
+        
+        .btn-logout {
+            background-color: #f5f5f5;
+            color: #555;
+            border: 1px solid #ddd;
+            padding: 10px 20px;
+            border-radius: 6px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .btn-logout:hover {
+            background-color: #eee;
+            color: #333;
+        }
+
+        .search-history-item,
+        .favorite-medicine-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 15px;
+            border: 1px solid #eee;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            transition: all 0.3s;
+            align-items: center;
+        }
+        
+        .search-history-item:hover,
+        .favorite-medicine-item:hover {
+            background-color: #f9f9f9;
+        }
+        
+        .history-query {
+            font-weight: 500;
+        }
+        
+        .history-date {
+            color: #888;
+            font-size: 0.8rem;
+        }
+
+        .medicine-name {
+            font-weight: 500;
+        }
+        
+        .medicine-details {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 8px 20px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            font-weight: 500;
+            color: #666;
+            transition: all 0.3s;
+        }
+        
+        .tab.active {
+            color: var(--primary, #e53935);
+            border-bottom-color: var(--primary, #e53935);
+        }
+        
+        .tab:hover:not(.active) {
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .stats-container {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .stat-card {
+            flex: 1;
+            min-width: 150px;
+            padding: 15px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary, #e53935);
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #777;
+            margin-top: 5px;
+        }
+
+        .account-info-row {
+            display: flex;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #f0f0f0;
+            padding-bottom: 15px;
+        }
+        
+        .account-info-label {
+            flex: 1;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .account-info-value {
+            flex: 2;
+            color: #333;
+        }
+
+        .logout-section {
+            text-align: center;
+            padding-top: 15px;
+        }
+
+        @media (max-width: 768px) {
+            .profile-header {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .profile-avatar {
+                margin-right: 0;
+                margin-bottom: 15px;
+            }
+            
+            .account-info-row {
+                flex-direction: column;
+            }
+            
+            .account-info-label, 
+            .account-info-value {
+                flex: none;
+            }
+            
+            .account-info-label {
+                margin-bottom: 5px;
+            }
+            
+            .action-buttons {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    {% with active_page='profile' %}
+    {% include 'components/header.html' %}
+    {% endwith %}
+
+    <main>
+        <section class="auth-section">
+            <div class="container">
+                <div class="auth-container profile-container">
+                    <div class="auth-header">
+                        <h2><i class="fas fa-user-circle"></i> MON PROFIL</h2>
+                        <p class="auth-subtitle">Gérez votre compte et vos préférences</p>
+                    </div>
+                    
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }}">
+                                    <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }}"></i>
+                                    {{ message }}
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    
+                    <div class="profile-header">
+                        <div class="profile-avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="profile-info">
+                            <h3>{{ user.first_name }} {{ user.last_name }}</h3>
+                            <div class="profile-email">
+                                <i class="fas fa-envelope"></i> {{ user.email }}
+                            </div>
+                            <div class="profile-role">
+                                {% if user.role == 1 %}
+                                <i class="fas fa-user"></i> Patient
+                                {% elif user.role == 2 %}
+                                <i class="fas fa-user-md"></i> Professionnel de santé
+                                {% elif user.role == 3 %}
+                                <i class="fas fa-microscope"></i> Chercheur
+                                {% elif user.role == 4 %}
+                                <i class="fas fa-shield-alt"></i> Administrateur
+                                {% elif user.role == 5 %}
+                                <i class="fas fa-user"></i> Particulier
+                                {% elif user.role == 6 %}
+                                <i class="fas fa-user-graduate"></i> Étudiant
+                                {% else %}
+                                <i class="fas fa-user"></i> Utilisateur
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="profile-section">
+                        <h4><i class="fas fa-info-circle"></i> Informations personnelles</h4>
+                        
+                        <div class="account-info-row">
+                            <div class="account-info-label">Prénom</div>
+                            <div class="account-info-value">{{ user.first_name }}</div>
+                        </div>
+                        
+                        <div class="account-info-row">
+                            <div class="account-info-label">Nom</div>
+                            <div class="account-info-value">{{ user.last_name }}</div>
+                        </div>
+                        
+                        <div class="account-info-row">
+                            <div class="account-info-label">Email</div>
+                            <div class="account-info-value">{{ user.email }}</div>
+                        </div>
+                        
+                        {% if user.age %}
+                        <div class="account-info-row">
+                            <div class="account-info-label">Âge</div>
+                            <div class="account-info-value">{{ user.age }} ans</div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if user.profession %}
+                        <div class="account-info-row">
+                            <div class="account-info-label">Profession</div>
+                            <div class="account-info-value">{{ user.profession }}</div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if user.company %}
+                        <div class="account-info-row">
+                            <div class="account-info-label">Établissement/Société</div>
+                            <div class="account-info-value">{{ user.company }}</div>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="action-buttons">
+                            <a href="{{ url_for('users.edit_profile') }}" class="btn-profile btn-primary-outline">
+                                <i class="fas fa-edit"></i> Modifier mon profil
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="profile-section">
+                        <h4><i class="fas fa-shield-alt"></i> Sécurité</h4>
+                        
+                        <div class="account-info-row">
+                            <div class="account-info-label">Mot de passe</div>
+                            <div class="account-info-value">••••••••</div>
+                        </div>
+                        
+                        <div class="action-buttons">
+                            <a href="{{ url_for('users.change_password') }}" class="btn-profile btn-primary-outline">
+                                <i class="fas fa-key"></i> Changer mon mot de passe
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="profile-section logout-section">
+                        <a href="{{ url_for('users.logout') }}" class="btn-logout">
+                            <i class="fas fa-sign-out-alt"></i> Déconnexion
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    {% with now=now|default({"year": 2023}) %}
+    {% include 'components/footer.html' %}
+    {% endwith %}
+</body>
+</html>

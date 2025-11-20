@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MEDICSEARCH • Administration des utilisateurs</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <style>
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background-color: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .users-table th, .users-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .users-table th {
+            background-color: #f5f5f5;
+            font-weight: 600;
+        }
+        
+        .users-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .users-table tr:hover {
+            background-color: #f9f9f9;
+        }
+        
+        .user-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .btn-edit, .btn-suspend {
+            padding: 4px 10px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 0.8rem;
+        }
+        
+        .btn-edit {
+            background-color: #2196F3;
+            color: white;
+        }
+        
+        .btn-suspend {
+            background-color: #FF9800;
+            color: white;
+        }
+        
+        .status-active {
+            color: #4CAF50;
+            font-weight: 500;
+        }
+        
+        .status-inactive {
+            color: #F44336;
+            font-weight: 500;
+        }
+        
+        .filters-container {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .filter-form {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .filter-form select, .filter-form button {
+            padding: 8px 12px;
+            border-radius: 4px;
+        }
+        
+        .filter-form select {
+            border: 1px solid #ddd;
+        }
+        
+        .filter-form button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            gap: 10px;
+        }
+        
+        .page-link {
+            display: inline-block;
+            padding: 8px 12px;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            color: #333;
+            text-decoration: none;
+        }
+        
+        .page-link.active {
+            background-color: #2196F3;
+            color: white;
+            border-color: #2196F3;
+        }
+    </style>
+</head>
+<body>
+    {% with active_page='admin' %}
+    {% include 'components/header.html' %}
+    {% endwith %}
+
+    <main>
+        <section class="admin-section">
+            <div class="container">
+                <h2>Administration des utilisateurs</h2>
+                
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                <div class="admin-nav">
+                    <a href="{{ url_for('users.admin_users') }}" class="admin-nav-item active">
+                        <i class="fas fa-users"></i> Utilisateurs
+                    </a>
+                    <a href="{{ url_for('users.admin_roles') }}" class="admin-nav-item">
+                        <i class="fas fa-user-tag"></i> Rôles
+                    </a>
+                    <a href="{{ url_for('users.admin_database') }}" class="admin-nav-item">
+                        <i class="fas fa-database"></i> Base de données
+                    </a>
+                </div>
+                
+                <div class="filters-container">
+                    <form class="filter-form" method="GET">
+                        <div>
+                            <label for="role-filter">Filtrer par rôle:</label>
+                            <select id="role-filter" name="role">
+                                <option value="">Tous les rôles</option>
+                                {% for role_id, role_name in roles.items() %}
+                                    <option value="{{ role_id }}" {% if request.args.get('role') == role_id|string %}selected{% endif %}>
+                                        {{ role_name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label for="status-filter">Filtrer par statut:</label>
+                            <select id="status-filter" name="status">
+                                <option value="">Tous les statuts</option>
+                                <option value="active" {% if request.args.get('status') == 'active' %}selected{% endif %}>Actif</option>
+                                <option value="inactive" {% if request.args.get('status') == 'inactive' %}selected{% endif %}>Inactif</option>
+                                <option value="verified" {% if request.args.get('status') == 'verified' %}selected{% endif %}>Vérifié</option>
+                            </select>
+                        </div>
+                        
+                        <button type="submit">Appliquer les filtres</button>
+                    </form>
+                </div>
+                
+                <table class="users-table">
+                    <thead>
+                        <tr>
+                            <th>Nom</th>
+                            <th>Email</th>
+                            <th>Rôle</th>
+                            <th>Date d'inscription</th>
+                            <th>Statut</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                            <tr>
+                                <td>{{ user.first_name }} {{ user.last_name }}</td>
+                                <td>{{ user.email }}</td>
+                                <td>{{ user.role_name }}</td>
+                                <td>{{ user.created_at.strftime('%d/%m/%Y') if user.created_at else 'N/A' }}</td>
+                                <td>
+                                    {% if user.status == 'active' %}
+                                        <span class="status-active">Actif</span>
+                                    {% elif user.status == 'inactive' %}
+                                        <span class="status-inactive">Inactif</span>
+                                    {% elif user.status == 'verified' %}
+                                        <span class="status-verified">Vérifié</span>
+                                    {% else %}
+                                        {{ user.status }}
+                                    {% endif %}
+                                </td>
+                                <td class="user-actions">
+                                    <a href="{{ url_for('users.admin_edit_user', user_id=user._id) }}" class="btn-edit">
+                                        <i class="fas fa-edit"></i> Éditer
+                                    </a>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="6" style="text-align:center;">Aucun utilisateur trouvé</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                
+                <!-- Pagination (à implémenter plus tard) -->
+                <div class="pagination">
+                    <!-- Les liens de pagination seront ajoutés ici -->
+                </div>
+            </div>
+        </section>
+    </main>
+
+    {% with now=now|default({"year": 2023}) %}
+    {% include 'components/footer.html' %}
+    {% endwith %}
+</body>
+</html>

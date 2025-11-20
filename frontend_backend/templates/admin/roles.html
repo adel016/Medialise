@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MEDICSEARCH • Administration des rôles</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <style>
+        .role-card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .role-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        
+        .role-id {
+            display: inline-block;
+            background-color: #f0f0f0;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            color: #666;
+        }
+        
+        .role-description {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        
+        .permissions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .permission-item {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+        
+        .permission-status {
+            margin-right: 10px;
+        }
+        
+        .permission-status.enabled {
+            color: #4CAF50;
+        }
+        
+        .permission-status.disabled {
+            color: #F44336;
+        }
+        
+        .edit-role-btn {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 600px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover {
+            color: #555;
+        }
+        
+        .permission-toggle {
+            margin: 10px 0;
+        }
+        
+        .save-permissions {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    {% with active_page='admin' %}
+    {% include 'components/header.html' %}
+    {% endwith %}
+
+    <main>
+        <section class="admin-section">
+            <div class="container">
+                <h2>Administration des rôles</h2>
+                
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                <div class="admin-nav">
+                    <a href="{{ url_for('users.admin_users') }}" class="admin-nav-item">
+                        <i class="fas fa-users"></i> Utilisateurs
+                    </a>
+                    <a href="{{ url_for('users.admin_roles') }}" class="admin-nav-item active">
+                        <i class="fas fa-user-tag"></i> Rôles
+                    </a>
+                    <a href="{{ url_for('users.admin_database') }}" class="admin-nav-item">
+                        <i class="fas fa-database"></i> Base de données
+                    </a>
+                </div>
+                
+                <div class="roles-container">
+                    {% for role in roles %}
+                        <div class="role-card" data-role-id="{{ role._id }}">
+                            <div class="role-header">
+                                <div>
+                                    <h3>{{ role.name }}</h3>
+                                    <span class="role-id">ID: {{ role._id }}</span>
+                                </div>
+                                <button class="edit-role-btn" onclick="openEditModal('{{ role._id }}')">
+                                    <i class="fas fa-edit"></i> Modifier
+                                </button>
+                            </div>
+                            
+                            <div class="role-description">
+                                {{ role.description }}
+                            </div>
+                            
+                            <h4>Permissions :</h4>
+                            <div class="permissions-grid">
+                                {% for perm_name, perm_value in role.permissions.items() %}
+                                    <div class="permission-item">
+                                        {% if perm_value %}
+                                            <span class="permission-status enabled"><i class="fas fa-check-circle"></i></span>
+                                        {% else %}
+                                            <span class="permission-status disabled"><i class="fas fa-times-circle"></i></span>
+                                        {% endif %}
+                                        <span class="permission-name">{{ perm_name|replace('_', ' ')|title }}</span>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <!-- Modal for editing permissions -->
+    <div id="edit-role-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEditModal()">&times;</span>
+            <h3>Modifier les permissions</h3>
+            <h4 id="modal-role-name"></h4>
+            
+            <div id="permissions-form">
+                <!-- Permission toggles will be inserted here by JavaScript -->
+            </div>
+            
+            <button id="save-permissions-btn" class="save-permissions" onclick="savePermissions()">
+                Enregistrer les modifications
+            </button>
+        </div>
+    </div>
+
+    {% with now=now|default({"year": 2023}) %}
+    {% include 'components/footer.html' %}
+    {% endwith %}
+    
+    <script>
+        let currentRoleId = null;
+        let allRoles = {{ roles|tojson }};
+        
+        function openEditModal(roleId) {
+            currentRoleId = roleId;
+            const modal = document.getElementById('edit-role-modal');
+            const role = allRoles.find(r => r._id === parseInt(roleId));
+            
+            document.getElementById('modal-role-name').textContent = role.name;
+            
+            // Generate permission toggles
+            const permissionsForm = document.getElementById('permissions-form');
+            permissionsForm.innerHTML = '';
+            
+            for (const [permName, permValue] of Object.entries(role.permissions)) {
+                const permLabel = permName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                
+                const toggleDiv = document.createElement('div');
+                toggleDiv.className = 'permission-toggle';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `perm-${permName}`;
+                checkbox.name = permName;
+                checkbox.checked = permValue;
+                
+                const label = document.createElement('label');
+                label.htmlFor = `perm-${permName}`;
+                label.textContent = ` ${permLabel}`;
+                
+                toggleDiv.appendChild(checkbox);
+                toggleDiv.appendChild(label);
+                permissionsForm.appendChild(toggleDiv);
+            }
+            
+            modal.style.display = 'block';
+        }
+        
+        function closeEditModal() {
+            document.getElementById('edit-role-modal').style.display = 'none';
+            currentRoleId = null;
+        }
+        
+        function savePermissions() {
+            if (!currentRoleId) return;
+            
+            const permissionsForm = document.getElementById('permissions-form');
+            const checkboxes = permissionsForm.querySelectorAll('input[type="checkbox"]');
+            
+            const permissions = {};
+            checkboxes.forEach(checkbox => {
+                permissions[checkbox.name] = checkbox.checked;
+            });
+            
+            // Submit permissions to server
+            fetch(`/admin/roles/${currentRoleId}/permissions`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ permissions })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Permissions mises à jour avec succès');
+                    location.reload();
+                } else {
+                    alert('Erreur: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Une erreur est survenue lors de la mise à jour des permissions');
+            });
+            
+            closeEditModal();
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+cd "C:\Users\adelf\Documents\BUT 3\Semestre 5\SAE\MedSearch2\configuration"
+
+docker compose up -d --build
+
+Une fois les conteneur lancée j'ai restaurer les données mongo avec cette commande dans le termianl toujours :
+
+docker run --rm `
+  --network configuration_default `
+  -v "c:\Users\adelf\Documents\BUT 3\Semestre 5\SAE\MedSearch2\export_base_données\medicsearchmongodump:/dump" `
+  mongo:6.0 `
+  mongorestore --host medsearch_mongo --port 27017 --db medicsearch /dump
+
+Coté Qdrant ne pas oublié de lancer le script index_to_qdrant.py dans docker avec la commande si aucun résultat trouvé ou pour réindéxer :
+
+cd "C:\Users\adelf\Documents\BUT 3\Semestre 5\SAE\MedSearch2\frontend_backend\scripts"
+docker exec -it medsearch_web python scripts/index_to_qdrant.py
+
+Redémarre le web :
+
+cd "C:\Users\adelf\Documents\BUT 3\Semestre 5\SAE\MedSearch2\configuration"
+docker restart medsearch_web
+docker logs --tail 40 medsearch_web

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+    <style>
+        header {
+            background-color: #fff;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+        }
+        
+        .logo-icon {
+            color: #007bff;
+            font-size: 1.8rem;
+            margin-right: 10px;
+        }
+        
+        .logo-text {
+            font-weight: 700;
+            color: #333;
+            font-size: 1.5rem;
+        }
+        
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .search-icon {
+            color: #007bff;
+            font-size: 1.3rem;
+            cursor: pointer;
+            transition: color 0.3s;
+            padding: 8px;
+            border-radius: 50%;
+            background-color: #f0f7ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+        }
+        
+        .search-icon:hover {
+            background-color: #e0f0ff;
+            color: #0056b3;
+        }
+        
+        .auth-link {
+            padding: 8px 20px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+            color: #007bff;
+            border: 2px solid #007bff;
+        }
+        
+        .auth-link:hover {
+            background-color: rgba(0, 123, 255, 0.1);
+        }
+
+        /* Dropdown for user menu */
+        .user-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #007bff;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            background-color: #fff;
+            min-width: 180px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        .dropdown-content a {
+            color: #333;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            transition: background 0.3s;
+        }
+
+        .dropdown-content a:hover {
+            background-color: #f5f5f5;
+        }
+
+        .dropdown-divider {
+            height: 1px;
+            margin: 5px 0;
+            background-color: #eee;
+        }
+
+        .user-dropdown:hover .dropdown-content {
+            display: block;
+        }
+
+        /* Mobile menu */
+        .menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #333;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .menu-toggle {
+                display: block;
+            }
+            
+            .header-actions {
+                display: none;
+                flex-direction: column;
+                position: absolute;
+                top: 70px;
+                left: 0;
+                right: 0;
+                background-color: white;
+                padding: 20px;
+                box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            }
+            
+            .header-actions.show {
+                display: flex;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <a href="/" class="logo">
+                <i class="fas fa-pills logo-icon"></i>
+                <span class="logo-text">MedicSearch</span>
+            </a>
+
+            <button class="menu-toggle">
+                <i class="fas fa-bars"></i>
+            </button>
+
+            <div class="header-actions">
+                <nav style="display:flex; gap:10px; align-items:center;">
+                    <div class="search-dropdown" style="position:relative;">
+                        <button class="search-icon" id="searchDropdownBtn" title="Recherche">
+                            <i class="fas fa-search"></i>
+                        </button>
+                        <div id="searchDropdownMenu" style="display:none; position:absolute; top:45px; left:0; background:#fff; box-shadow:0 8px 16px rgba(0,0,0,0.1); border-radius:10px; min-width:220px; z-index:1001;">
+                            <a href="/search" style="display:block; padding:12px 20px; color:#333; text-decoration:none;">Recherche classique</a>
+                            <a href="/vector-search" style="display:block; padding:12px 20px; color:#333; text-decoration:none;">Recherche vectorielle (sémantique)</a>
+                            <a href="/ai-search" style="display:block; padding:12px 20px; color:#333; text-decoration:none;">Recherche IA (langage naturel)</a>
+                        </div>
+                    </div>
+                </nav>
+
+                {% if g.user %}
+                    <div class="user-dropdown">
+                        <div class="user-avatar">
+                            {% if g.user.first_name %}
+                                {{ g.user.first_name[0] }}{{ g.user.last_name[0] if g.user.last_name else '' }}
+                            {% else %}
+                                <i class="fas fa-user"></i>
+                            {% endif %}
+                        </div>
+                        <div class="dropdown-content">
+                            <a href="{{ url_for('users.profile') }}">Mon profil</a>
+                            <a href="{{ url_for('users.favorites') }}">Mes favoris</a>
+                            {% if g.user.role >= 4 %}
+                                <div class="dropdown-divider"></div>
+                                <a href="{{ url_for('users.admin_users') }}">Administration</a>
+                            {% endif %}
+                            <div class="dropdown-divider"></div>
+                            <a href="{{ url_for('users.logout') }}">Déconnexion</a>
+                        </div>
+                    </div>
+                {% else %}
+                    <a href="{{ url_for('users.login') }}" class="auth-link">Connexion</a>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+    
+    <script>
+        document.querySelector('.menu-toggle').addEventListener('click', function() {
+            document.querySelector('.header-actions').classList.toggle('show');
+        });
+
+        // Dropdown for search in navbar
+        document.addEventListener('DOMContentLoaded', function() {
+            const navbarDropdownBtn = document.getElementById('navbar-search-dropdown-btn');
+            const navbarDropdownMenu = document.getElementById('navbar-search-dropdown-menu');
+            if (navbarDropdownBtn && navbarDropdownMenu) {
+                navbarDropdownBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    navbarDropdownMenu.style.display = navbarDropdownMenu.style.display === 'block' ? 'none' : 'block';
+                });
+                document.addEventListener('click', function(e) {
+                    if (!navbarDropdownBtn.contains(e.target) && !navbarDropdownMenu.contains(e.target)) {
+                        navbarDropdownMenu.style.display = 'none';
+                    }
+                });
+            }
+        });
+    </script>
+    <script>
+        const searchBtn = document.getElementById('searchDropdownBtn');
+        const searchMenu = document.getElementById('searchDropdownMenu');
+        if (searchBtn && searchMenu) {
+            searchBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                searchMenu.style.display = searchMenu.style.display === 'block' ? 'none' : 'block';
+            });
+            document.addEventListener('click', function(e) {
+                if (!searchMenu.contains(e.target) && e.target !== searchBtn) {
+                    searchMenu.style.display = 'none';
+                }
+            });
+        }
+    </script>
+</body>
+</html>
