@@ -106,22 +106,36 @@
         
         /* Progress bar styles */
         .progress-container {
-            width: 100%;
-            background-color: #f1f1f1;
-            border-radius: 4px;
-            margin: 20px 0;
-            display: none;
-        }
-        
-        .progress-bar {
-            height: 30px;
-            border-radius: 4px;
-            background-color: #4CAF50;
-            text-align: center;
-            line-height: 30px;
-            color: white;
-            transition: width 0.5s;
-        }
+        width: 100%;
+        background-color: #f1f1f1;
+        border-radius: 4px;
+        margin: 20px 0;
+        display: none;
+    }
+
+    .progress-bar {
+        height: 30px;
+        border-radius: 4px;
+        background-color: #4CAF50;
+        text-align: center;
+        line-height: 30px;
+        color: white;
+        width: 0%;
+        transition: width 0.3s ease;
+    }
+
+    /* état "en cours" : barre animée à ~50% */
+    .progress-bar.running {
+        width: 50%;
+        background: linear-gradient(90deg, #4CAF50, #8BC34A);
+        animation: progress-pulse 1s infinite ease-in-out;
+    }
+
+    @keyframes progress-pulse {
+        0%   { opacity: 0.6; }
+        50%  { opacity: 1; }
+        100% { opacity: 0.6; }
+    }
         
         .scraping-controls {
             display: flex;
@@ -315,15 +329,16 @@
                     
                     <div class="action-buttons">
                         <form action="{{ url_for('users.admin_run_scraper') }}" method="POST" id="scraper-form">
-                            <button type="submit" class="btn-primary" id="run-scraper-btn" disabled>
-                                <i class="fas fa-sync-alt"></i> LANCER LE SCRAPING COMPLET (désactivé)
+                            <button type="submit" class="btn-primary" id="run-scraper-btn">
+                                <i class="fas fa-sync-alt"></i> LANCER LE SCRAPING ANSM (pipeline scrapers)
                             </button>
                         </form>
                         <p class="text-muted" style="margin-top: 10px;">
                             <small>
-                                Pour lancer le scraping manuellement, exécutez la commande suivante sur le serveur&nbsp;:<br>
-                                <code>python scripts/scraper.py</code><br>
-                                Cette opération effectue un scraping complet et peut prendre plusieurs minutes. Vous pouvez quitter et revenir sur cette page.
+                                Ce bouton lance le nouveau pipeline :<br>
+                                <code>python -m scrapers.test_agno_pipeline</code><br>
+                                puis<br>
+                                <code>python -m scrapers.import_json_to_mongo</code>
                             </small>
                         </p>
                         
@@ -391,299 +406,154 @@
     {% include 'components/footer.html' %}
     {% endwith %}
     
-    <script>
-        // Script pour montrer l'état de chargement sur le bouton
-        document.getElementById('scraper-form').addEventListener('submit', function() {
-            const button = document.getElementById('run-scraper-btn');
-            button.disabled = true;
-            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> SCRAPING EN COURS';
-            button.classList.add('btn-loading');
-        });
 
-        // Variables globales pour le suivi
-        let scrapingInProgress = false;
-        let statusCheckInterval = null;
-        let logCheckInterval = null;
-        let lastLogId = 0;
-        let retryCount = 0;
-        const MAX_RETRIES = 3;
-        
-        // Fonction pour vérifier l'état du scraping
-        function checkScrapingStatus() {
-            fetch('{{ url_for("users.admin_scraper_status") }}')
-                .then(response => response.json())
-                .then(data => {
-                    // Reset retry counter on successful response
-                    retryCount = 0;
-                    
-                    if (data.status === 'running') {
-                        // Scraping en cours
-                        scrapingInProgress = true;
-                        
-                        // Afficher la barre de progression
-                        document.getElementById('progress-container').style.display = 'block';
-                        document.getElementById('run-scraper-btn').disabled = true;
-                        
-                        // Mettre à jour la barre de progression
-                        const percent = data.progress && data.progress.percent || 0;
-                        const progressBar = document.getElementById('progress-bar');
-                        progressBar.style.width = percent + '%';
-                        progressBar.textContent = percent + '%';
-                        
-                        // Mettre à jour le statut
-                        if (data.progress) {
-                            document.getElementById('scraping-status').innerHTML = 
-                                `Traitement en cours: ${data.progress.current || 0}/${data.progress.total || 0} URLs <br>` +
-                                `Nouveaux: ${data.progress.new_added || 0} | Mis à jour: ${data.progress.updated || 0} | ` +
-                                `Inchangés: ${data.progress.unchanged || 0} | Erreurs: ${data.progress.errors || 0}`;
-                        }
-                        
-                        // S'assurer que l'intervalle de vérification des logs est actif
-                        if (!logCheckInterval) {
-                            logCheckInterval = setInterval(fetchLatestLogs, 2000);
-                        }
-                    } 
-                    else if (data.status === 'completed') {
-                        // Scraping terminé
-                        scrapingInProgress = false;
-                        clearInterval(statusCheckInterval);
-                        
-                        // Mettre à jour la barre de progression à 100%
-                        const progressBar = document.getElementById('progress-bar');
-                        progressBar.style.width = '100%';
-                        progressBar.textContent = '100%';
-                        document.getElementById('scraping-status').textContent = 'Scraping terminé avec succès!';
-                        
-                        // Récupérer les logs finaux
-                        fetchLatestLogs();
-                        
-                        // Arrêter la vérification des logs après une dernière récupération
-                        if (logCheckInterval) {
-                            clearInterval(logCheckInterval);
-                            logCheckInterval = null;
-                        }
-                        
-                        // Rechargement de la page après 2 secondes
-                        setTimeout(() => {
-                            location.reload();
-                        }, 2000);
-                    }
-                    else {
-                        // Aucun scraping en cours
-                        scrapingInProgress = false;
-                        document.getElementById('progress-container').style.display = 'none';
-                        document.getElementById('run-scraper-btn').disabled = false;
-                        
-                        // Arrêter la vérification des logs si aucun scraping en cours
-                        if (logCheckInterval) {
-                            clearInterval(logCheckInterval);
-                            logCheckInterval = null;
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error('Erreur lors de la vérification du statut:', error);
-                    retryCount++;
-                    
-                    // Si on a atteint le nombre maximum de tentatives, arrêter la vérification
-                    if (retryCount > MAX_RETRIES) {
-                        console.error(`Échec de la connexion après ${MAX_RETRIES} tentatives. Arrêt de la vérification.`);
-                        clearInterval(statusCheckInterval);
-                        
-                        // Réinitialiser l'interface
-                        document.getElementById('run-scraper-btn').disabled = false;
-                        document.getElementById('run-scraper-btn').innerHTML = '<i class="fas fa-sync-alt"></i> LANCER LE SCRAPING';
-                        
-                        // Afficher un message d'erreur
-                        const logContent = document.getElementById('log-content');
-                        const logLine = document.createElement('div');
-                        logLine.className = 'log-line log-error';
-                        logLine.textContent = `[${new Date().toISOString()}] Erreur de communication avec le serveur. Le processus de scraping peut avoir échoué.`;
-                        logContent.appendChild(logLine);
-                        
-                        // Afficher la console de logs si elle n'est pas déjà visible
-                        document.getElementById('log-console').style.display = 'block';
-                        document.getElementById('toggle-console-btn').innerHTML = '<i class="fas fa-terminal"></i> Masquer la console de logs';
-                    }
-                });
+    <script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('scraper-form');
+    const button = document.getElementById('run-scraper-btn');
+    const progressContainer = document.getElementById('progress-container');
+    const progressBar = document.getElementById('progress-bar');
+    const statusText = document.getElementById('scraping-status');
+    const logConsole = document.getElementById('log-console');
+    const logContent = document.getElementById('log-content');
+    const toggleConsoleBtn = document.getElementById('toggle-console-btn');
+    const clearLogsBtn = document.getElementById('clear-logs-btn');
+    const autoscrollBtn = document.getElementById('autoscroll-btn');
+
+    let lastLogLineCount = 0;
+    let logPollingInterval = null;
+    let autoScroll = true;
+
+    function appendLogLine(text) {
+        const div = document.createElement('div');
+        div.className = 'log-line log-info';
+        div.textContent = text;
+        logContent.appendChild(div);
+        if (autoScroll) {
+            logConsole.scrollTop = logConsole.scrollHeight;
         }
-        
-        // Fonction pour récupérer les derniers logs
-        function fetchLatestLogs() {
-            fetch(`{{ url_for("users.admin_scraper_logs") }}?since=${lastLogId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.logs && data.logs.length > 0) {
-                        // Mettre à jour lastLogId avec l'ID du dernier log reçu
-                        lastLogId = data.logs[data.logs.length - 1].id;
-                        
-                        // Ajouter les nouveaux logs à la console
-                        const logContent = document.getElementById('log-content');
-                        
-                        data.logs.forEach(log => {
-                            const logLine = document.createElement('div');
-                            logLine.className = `log-line log-${log.level}`;
-                            logLine.textContent = `[${log.timestamp}] ${log.message}`;
-                            logContent.appendChild(logLine);
-                        });
-                        
-                        // Auto-scroll si activé
-                        const autoScrollEnabled = document.getElementById('autoscroll-btn').getAttribute('data-enabled') === 'true';
-                        const logConsole = document.getElementById('log-console');
-                        if (autoScrollEnabled) {
-                            logConsole.scrollTop = logConsole.scrollHeight;
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error('Erreur lors de la récupération des logs:', error);
-                });
-        }
-        
-        // Vérifier l'état initial au chargement de la page
-        document.addEventListener('DOMContentLoaded', function() {
-            // Vérifier immédiatement l'état du scraping
-            checkScrapingStatus();
-            
-            // Configurer la vérification périodique
-            statusCheckInterval = setInterval(checkScrapingStatus, 3000); // Vérifier toutes les 3 secondes
-            
-            // Gestion du bouton de la console
-            const toggleConsoleBtn = document.getElementById('toggle-console-btn');
-            const logConsole = document.getElementById('log-console');
-            
-            toggleConsoleBtn.addEventListener('click', function() {
-                if (logConsole.style.display === 'block') {
-                    logConsole.style.display = 'none';
-                    toggleConsoleBtn.innerHTML = '<i class="fas fa-terminal"></i> Afficher la console de logs';
-                } else {
-                    logConsole.style.display = 'block';
-                    toggleConsoleBtn.innerHTML = '<i class="fas fa-terminal"></i> Masquer la console de logs';
-                    // Charger les logs immédiatement
-                    fetchLatestLogs();
+    }
+
+    function updateProgress(current, total) {
+        if (!total || total <= 0) return;
+        const percent = Math.min(100, Math.round(current * 100 / total));
+        progressBar.classList.remove('running');
+        progressBar.style.width = percent + '%';
+        progressBar.textContent = percent + '%';
+        statusText.textContent = `Scraping en cours... (${current}/${total})`;
+    }
+
+    // Parse les lignes du type "[12/30] ..."
+    function computeProgressFromLogs(lines) {
+        let current = 0;
+        let total = 0;
+        const regex = /\[(\d+)\/(\d+)\]/;
+
+        for (const line of lines) {
+            const m = line.match(regex);
+            if (m) {
+                const c = parseInt(m[1], 10);
+                const t = parseInt(m[2], 10);
+                if (!isNaN(c) && !isNaN(t)) {
+                    if (t > total) total = t;
+                    if (c > current) current = c;
                 }
-            });
-            
-            // Gestion du bouton d'effacement des logs
-            document.getElementById('clear-logs-btn').addEventListener('click', function() {
-                document.getElementById('log-content').innerHTML = '';
-            });
-            
-            // Gestion du bouton d'auto-scroll
-            const autoscrollBtn = document.getElementById('autoscroll-btn');
-            autoscrollBtn.addEventListener('click', function() {
-                const currentState = autoscrollBtn.getAttribute('data-enabled') === 'true';
-                const newState = !currentState;
-                autoscrollBtn.setAttribute('data-enabled', newState.toString());
-                autoscrollBtn.textContent = `Auto-scroll: ${newState ? 'ON' : 'OFF'}`;
-            });
-        });
-        
-        // Configurer le formulaire pour démarrer le scraping
-        document.getElementById('scraper-form').addEventListener('submit', function(event) {
-            event.preventDefault();
-            
-            if (!confirm('Voulez-vous lancer un scraping complet? Cette opération peut prendre plusieurs minutes.')) {
-                return;
             }
-            
-            // Désactiver le bouton et montrer l'état de chargement
-            const button = document.getElementById('run-scraper-btn');
+        }
+        if (current > 0 && total > 0) {
+            updateProgress(current, total);
+        }
+    }
+
+    function processLogs(logs) {
+        // afficher seulement les nouvelles lignes
+        const newLines = logs.slice(lastLogLineCount);
+        newLines.forEach(appendLogLine);
+        lastLogLineCount = logs.length;
+
+        computeProgressFromLogs(logs);
+
+        if (logs.some(l => l.includes('=== PIPELINE TERMINÉ ===') || l.includes('TEST TERMINÉ'))) {
+            clearInterval(logPollingInterval);
+            logPollingInterval = null;
+            progressBar.classList.remove('running');
+            progressBar.style.width = '100%';
+            progressBar.textContent = '100%';
+            statusText.textContent = 'Scraping terminé (voir logs Docker pour le détail).';
+            button.disabled = false;
+            button.textContent = 'LANCER LE SCRAPING ANSM (PIPELINE SCRAPERS)';
+        }
+    }
+
+    function startLogPolling() {
+        if (logPollingInterval) return;
+
+        logPollingInterval = setInterval(() => {
+            fetch("{{ url_for('users.admin_get_logs') }}?tail=400")
+                .then(r => r.json())
+                .then(data => {
+                    if (data.ok && Array.isArray(data.logs)) {
+                        processLogs(data.logs);
+                    } else if (!data.ok) {
+                        console.error('Erreur backend get_logs:', data.error);
+                    }
+                })
+                .catch(err => {
+                    console.error('Erreur récupération logs', err);
+                });
+        }, 2000);
+    }
+
+    if (form) {
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+
             button.disabled = true;
-            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> DÉMARRAGE DU SCRAPING...';
-            
-            // Afficher la console de logs automatiquement
-            document.getElementById('log-console').style.display = 'block';
-            document.getElementById('toggle-console-btn').innerHTML = '<i class="fas fa-terminal"></i> Masquer la console de logs';
-            
-            // Ajouter un message dans la console pour indiquer le démarrage
-            const logContent = document.getElementById('log-content');
-            const logLine = document.createElement('div');
-            logLine.className = 'log-line log-info';
-            logLine.textContent = `[${new Date().toISOString()}] Démarrage du scraping...`;
-            logContent.appendChild(logLine);
-            
-            // Envoyer la requête pour démarrer le scraping
-            fetch(this.action, {
+            button.textContent = 'SCRAPING EN COURS...';
+            progressContainer.style.display = 'block';
+            progressBar.classList.add('running');
+            progressBar.style.width = '10%';
+            progressBar.textContent = '';
+            statusText.textContent = 'Scraping en cours...';
+            logConsole.style.display = 'block';
+            logContent.textContent = '';
+            lastLogLineCount = 0;
+
+            fetch("{{ url_for('users.admin_run_scraper') }}", {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
             })
-            .then(response => response.json())
+            .then(r => r.json())
             .then(data => {
-                if (data.status === 'started') {
-                    // Montrer la barre de progression
-                    document.getElementById('progress-container').style.display = 'block';
-                    
-                    // Démarrer la vérification périodique
-                    scrapingInProgress = true;
-                    retryCount = 0; // Réinitialiser le compteur de tentatives
-                    if (!statusCheckInterval) {
-                        statusCheckInterval = setInterval(checkScrapingStatus, 3000);
-                    }
-                } else {
-                    // Erreur
-                    button.disabled = false;
-                    button.innerHTML = '<i class="fas fa-sync-alt"></i> LANCER LE SCRAPING';
-                    
-                    // Ajouter un message d'erreur dans la console
-                    const errorLine = document.createElement('div');
-                    errorLine.className = 'log-line log-error';
-                    errorLine.textContent = `[${new Date().toISOString()}] Erreur: ${data.message || "Une erreur est survenue"}`;
-                    logContent.appendChild(errorLine);
-                    
-                    if (data.details) {
-                        const detailsLine = document.createElement('div');
-                        detailsLine.className = 'log-line log-error';
-                        detailsLine.textContent = data.details;
-                        logContent.appendChild(detailsLine);
-                    }
-                    
-                    alert('Erreur: ' + data.message);
-                }
+                // la fin (100%) sera gérée par processLogs quand il verra "PIPELINE TERMINÉ"
+                if (!logPollingInterval) startLogPolling();
             })
-            .catch(error => {
+            .catch(err => {
+                console.error('Erreur lancement scraper', err);
                 button.disabled = false;
-                button.innerHTML = '<i class="fas fa-sync-alt"></i> LANCER LE SCRAPING';
-                
-                // Ajouter un message d'erreur dans la console
-                const errorLine = document.createElement('div');
-                errorLine.className = 'log-line log-error';
-                errorLine.textContent = `[${new Date().toISOString()}] Erreur de communication: ${error.message}`;
-                logContent.appendChild(errorLine);
-                
-                console.error('Erreur:', error);
+                button.textContent = 'LANCER LE SCRAPING ANSM (PIPELINE SCRAPERS)';
+                statusText.textContent = 'Erreur lors du lancement du scraping.';
             });
+
+            startLogPolling();
         });
-        
-        // Configurer le bouton d'arrêt
-        document.getElementById('stop-scraper-btn').addEventListener('click', function() {
-            if (!confirm('Voulez-vous vraiment arrêter le processus de scraping?')) {
-                return;
-            }
-            
-            fetch('{{ url_for("users.admin_stop_scraper") }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'stopped') {
-                    document.getElementById('scraping-status').textContent = 'Arrêt du scraping en cours...';
-                    // Laisser le statut se mettre à jour naturellement
-                } else {
-                    alert('Erreur: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Erreur:', error);
-            });
+    }
+
+    // petits handlers pour la console
+    if (clearLogsBtn) {
+        clearLogsBtn.addEventListener('click', () => {
+            logContent.textContent = '';
+            lastLogLineCount = 0;
         });
-    </script>
+    }
+    if (autoscrollBtn) {
+        autoscrollBtn.addEventListener('click', () => {
+            autoScroll = !autoScroll;
+            autoscrollBtn.textContent = 'Auto-scroll: ' + (autoScroll ? 'ON' : 'OFF');
+        });
+    }
+});
+</script>
+
 </body>
 </html>

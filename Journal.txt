@@ -1,3 +1,13 @@
 20/11/2025 :
 
-Ajout du journal et mis en plac d'un projet commun. 
+Ajout du journal et mis en plac d'un projet commun.
+
+Adel :
+___________________
+
+Découverte important le script de l'année denrière il scrappe que les médocs écrit sous forme de html i scrappe pas les médocs en pdf donc y a BCP de médoc pas présent la pruve "ABASAGLAR"
+
+Donc là on a deux possibilité soit :
+
+1 - Faire sembalnt comme si ça a tous scrapper et scrapper d'autres Src
+2 - Faire un gros demi tour et esseyr de scrapper les pdf 

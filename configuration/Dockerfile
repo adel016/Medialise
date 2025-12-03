@@ -17,6 +17,9 @@ RUN pip install --no-cache-dir "qdrant-client>=1.6.0"
 # Copier le code de l'application
 COPY ../frontend_backend/ .
 
+# Copier aussi le dossier scrapers (à la racine du projet Medialise)
+COPY ../scrapers/ ./scrapers/
+
 ENV PYTHONUNBUFFERED=1
 EXPOSE 5000
 

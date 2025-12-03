@@ -21,7 +21,6 @@ from config import get_config
 from ai_summary import get_or_generate_summary
 from pymongo.errors import ServerSelectionTimeoutError
 import time
-
 # --- Initialisation Flask et Qdrant ---
 app = Flask(__name__)
 # Charger la configuration
