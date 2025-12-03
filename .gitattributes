@@ -1,0 +1,4 @@
+# Track BSON dumps with Git LFS
+*.bson filter=lfs diff=lfs merge=lfs -text
+# Optionally track qdrant/large binary files as well
+export_base_données/medicamentsqdrantdump/** filter=lfs diff=lfs merge=lfs -text
