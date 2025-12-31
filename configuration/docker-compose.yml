@@ -16,6 +16,8 @@ services:
     ports:
       - "5000:5000"
     volumes:
+      - ../frontend_backend:/app
+      - ../scrapers:/app/scrapers
       - ../export_base_données:/app/export_base_données
 
   mongo:

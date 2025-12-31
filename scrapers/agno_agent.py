@@ -1,20 +1,43 @@
-# ancien
-# from utils.mongo import get_collection
+from dotenv import load_dotenv
+load_dotenv()
 
-from scrapers.utils.mongo import get_collection
+from agno.agent import Agent
+from agno.models.openai import OpenAIChat
+from agno.tools import tool
+
+from scrapers.sources.ansm_html import scrape_html
+from scrapers.import_json_to_mongo import upsert_document, import_all_from_test_outputs
 
 
-class Agent:
+@tool
+def scrape_ansm_rcp_url(url: str) -> str:
     """
-    Agent de base minimal pour les tests.
-    Tu peux l'enrichir plus tard (logging, contexte, etc.).
+    Scrape une page RCP ANSM en HTML à partir d'une URL,
+    puis upsert dans MongoDB.
     """
-    def __init__(self):
-        # Exemple : connexion à la collection MongoDB
-        self.medicines = get_collection("medicines")
+    doc = scrape_html(url)
+    n = upsert_document(doc)
+    return f"Scraping OK. Mongo upsert: {n} document. URL={url}"
 
-    def run(self, *args, **kwargs):
-        """
-        Méthode à surcharger dans les agents spécialisés.
-        """
-        raise NotImplementedError("La méthode run() doit être implémentée par les sous-classes.")
+
+@tool
+def import_existing_test_outputs() -> str:
+    """
+    Importe tous les fichiers JSON présents dans scrapers/test_outputs
+    (ta fonction existante).
+    """
+    import_all_from_test_outputs()
+    return "Import des fichiers test_outputs terminé."
+
+
+agno_agent = Agent(
+    name="Medical Data Scraper",
+    model=OpenAIChat(id="gpt-4o-mini"),
+    tools=[scrape_ansm_rcp_url, import_existing_test_outputs],
+    instructions=[
+        "Tu automatises des tâches techniques de scraping et d'import.",
+        "Quand on te donne une URL RCP ANSM HTML, utilise scrape_ansm_rcp_url(url).",
+        "Reste concis."
+    ],
+    markdown=True,
+)

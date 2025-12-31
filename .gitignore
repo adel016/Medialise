@@ -4,4 +4,21 @@ NoteAdel.txt
 # Note Malik
 NoteMalik.txt
 
+# Données lourdes
+data/pdfs/
+data/pdfs/**
 
+# Environnements virtuels
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# Secrets
+.env
+.env.local
+
+# Rapport
+Rapport Medialise.docx

@@ -21,6 +21,9 @@ from config import get_config
 from ai_summary import get_or_generate_summary
 from pymongo.errors import ServerSelectionTimeoutError
 import time
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
 # --- Initialisation Flask et Qdrant ---
 app = Flask(__name__)
 # Charger la configuration
@@ -121,21 +124,31 @@ def bson_to_json(data):
 
 # Fonction pour extraire le nom du médicament
 def extract_medicine_name(medicine):
-    """Extrait le nom du médicament."""
-    # Utiliser le titre s'il est disponible (dans la nouvelle structure)
-    if 'title' in medicine and medicine['title']:
-        return medicine['title']
-    
-    # Chercher dans la section 1 (DÉNOMINATION DU MÉDICAMENT)
-    if 'sections' in medicine and medicine['sections']:
-        for section in medicine['sections']:
-            if section['title'] == "1. DENOMINATION DU MEDICAMENT" and section.get('content'):
-                for content in section['content']:
-                    if 'text' in content:
-                        return content['text']
-    
-    # Si aucun nom n'est trouvé, utiliser l'ID comme nom par défaut
-    return f"Médicament {medicine['_id']}"
+    return get_display_title(medicine)
+
+def get_display_title(med: dict) -> str:
+    # v2
+    if med.get("drug", {}).get("full_title"):
+        return med["drug"]["full_title"]
+    if med.get("drug", {}).get("name"):
+        return med["drug"]["name"]
+    # v1
+    if med.get("title"):
+        return med["title"]
+    return f"Médicament {med.get('_id')}"
+
+def get_update_date(med: dict) -> str:
+    # v2 (si tu veux afficher une date stable)
+    upd = med.get("document", {}).get("updated_at")
+    if upd:
+        try:
+            # upd peut être datetime déjà
+            return upd.strftime("%Y-%m-%d")
+        except Exception:
+            return str(upd)
+    # v1
+    return med.get("update_date", "Non disponible")
+
 
 @app.route('/')
 def index():
@@ -388,8 +401,6 @@ def calculate_relevance_score(medicine, search_query):
             section_importance = 0
             # Les sections avec des informations importantes ont un poids plus élevé
             important_sections = ["1. DENOMINATION DU MEDICAMENT", "2. COMPOSITION QUALITATIVE ET QUANTITATIVE"]
-            if section['title'] in important_sections:
-                section_importance = 3
             
             # Vérifier le titre de la section
             section_title_lower = section['title'].lower()
@@ -399,37 +410,52 @@ def calculate_relevance_score(medicine, search_query):
                     score += (2 + section_importance) * term_count
                     total_matches += term_count
             
-            if 'content' in section and section['content']:
-                for content_item in section['content']:
-                    if 'text' in content_item:
-                        text_lower = content_item['text'].lower()
-                        for term in search_terms:
-                            term_count = text_lower.count(term)
-                            if term_count > 0:
-                                score += (1 + section_importance) * term_count
-                                total_matches += term_count
-            
+            if section.get("content"):
+                for item in section["content"]:
+                    # Cas 1 : content = ["ligne", "ligne2", ...]
+                    if isinstance(item, str) and item.strip():
+                        text_lower = item.lower()
+                    # Cas 2 : content = [{"text": "..."}, ...] (si ça existe dans certains docs)
+                    elif isinstance(item, dict) and item.get("text"):
+                        text_lower = str(item["text"]).lower()
+                    else:
+                        continue
+
+                    for term in search_terms:
+                        term_count = text_lower.count(term)
+                        if term_count > 0:
+                            score += (1 + section_importance) * term_count
+                            total_matches += term_count
+
             # Chercher dans les sous-sections
             if 'subsections' in section:
                 for subsection in section['subsections']:
                     # Vérifier le titre de la sous-section
-                    subsection_title_lower = subsection['title'].lower()
+                    subsection_title = subsection.get('title', '')
+                    subsection_title_lower = subsection_title.lower()
                     for term in search_terms:
                         term_count = subsection_title_lower.count(term)
                         if term_count > 0:
                             score += 2 * term_count
                             total_matches += term_count
                     
-                    if 'content' in subsection and subsection['content']:
-                        for content_item in subsection['content']:
-                            if 'text' in content_item:
-                                text_lower = content_item['text'].lower()
-                                for term in search_terms:
-                                    term_count = text_lower.count(term)
-                                    if term_count > 0:
-                                        score += 1 * term_count
-                                        total_matches += term_count
-    
+                    if subsection.get("content"):
+                        for item in subsection["content"]:
+                            # Cas EMA PDF: liste de strings
+                            if isinstance(item, str) and item.strip():
+                                text_lower = item.lower()
+                            # Cas HTML éventuel: liste de dicts {"text": ...}
+                            elif isinstance(item, dict) and item.get("text"):
+                                text_lower = str(item["text"]).lower()
+                            else:
+                                continue
+
+                            for term in search_terms:
+                                term_count = text_lower.count(term)
+                                if term_count > 0:
+                                    score += 1 * term_count
+                                    total_matches += term_count
+
     # Ajouter le nombre total de correspondances au score pour qu'il compte dans le tri
     score += total_matches
     
@@ -505,49 +531,72 @@ def find_search_term_locations(medicine, search_query):
                         add_match('Dosage', str(dosage), term, term_count, 3)
 
     # Chercher dans le contenu des sections
-    if 'sections' in medicine:
-        for section in medicine['sections']:
-            section_title = section.get('title', '')
+    if 'sections' in medicine and medicine['sections']:
+        important_sections = ["1. DENOMINATION DU MEDICAMENT", "2. COMPOSITION QUALITATIVE ET QUANTITATIVE"]
 
-            # Vérifier d'abord dans le titre de la section
+        for section in medicine['sections']:
+            if not isinstance(section, dict):
+                continue
+
+            section_importance = 0
+
+            # ✅ titre de section en mode safe
+            section_title = section.get('title', '')
+            if section_title in important_sections:
+                section_importance = 3
+
             section_title_lower = section_title.lower()
             for term in search_terms:
-                if term in section_title_lower:
-                    term_count = section_title_lower.count(term)
-                    add_match(f"Section: {section_title}", section_title, term, term_count, 3)
+                term_count = section_title_lower.count(term)
+                if term_count > 0:
+                    score += (2 + section_importance) * term_count
+                    total_matches += term_count
 
-            # Chercher dans le contenu de la section
-            if 'content' in section and section['content']:
-                for content_item in section['content']:
-                    if 'text' in content_item and content_item['text']:
-                        text_lower = content_item['text'].lower()
-                        for term in search_terms:
-                            if term in text_lower:
-                                term_count = text_lower.count(term)
-                                excerpt = extract_excerpt(content_item['text'], term)
-                                add_match(section_title, excerpt, term, term_count, 4)
+            # ✅ contenu section: string OU dict{text}
+            if section.get("content"):
+                for item in section["content"]:
+                    if isinstance(item, str) and item.strip():
+                        text_lower = item.lower()
+                    elif isinstance(item, dict) and item.get("text"):
+                        text_lower = str(item["text"]).lower()
+                    else:
+                        continue
 
-            # Chercher dans le contenu des sous-sections
-            if 'subsections' in section and section['subsections']:
-                for subsection in section['subsections']:
-                    subsection_title = subsection.get('title', '')
-
-                    # Vérifier dans le titre de la sous-section
-                    subsection_title_lower = subsection_title.lower()
                     for term in search_terms:
-                        if term in subsection_title_lower:
-                            term_count = subsection_title_lower.count(term)
-                            add_match(f"{section_title} > {subsection_title}", subsection_title, term, term_count, 3)
+                        term_count = text_lower.count(term)
+                        if term_count > 0:
+                            score += (1 + section_importance) * term_count
+                            total_matches += term_count
 
-                    if 'content' in subsection and subsection['content']:
-                        for content_item in subsection['content']:
-                            if 'text' in content_item and content_item['text']:
-                                text_lower = content_item['text'].lower()
-                                for term in search_terms:
-                                    if term in text_lower:
-                                        term_count = text_lower.count(term)
-                                        excerpt = extract_excerpt(content_item['text'], term)
-                                        add_match(f"{section_title} > {subsection_title}", excerpt, term, term_count, 4)
+            # ✅ sous-sections
+            if section.get('subsections'):
+                for subsection in section['subsections']:
+                    if not isinstance(subsection, dict):
+                        continue
+
+                    subsection_title = subsection.get('title', '')
+                    subsection_title_lower = subsection_title.lower()
+
+                    for term in search_terms:
+                        term_count = subsection_title_lower.count(term)
+                        if term_count > 0:
+                            score += 2 * term_count
+                            total_matches += term_count
+
+                    if subsection.get("content"):
+                        for item in subsection["content"]:
+                            if isinstance(item, str) and item.strip():
+                                text_lower = item.lower()
+                            elif isinstance(item, dict) and item.get("text"):
+                                text_lower = str(item["text"]).lower()
+                            else:
+                                continue
+
+                            for term in search_terms:
+                                term_count = text_lower.count(term)
+                                if term_count > 0:
+                                    score += 1 * term_count
+                                    total_matches += term_count
 
     # Retourner la liste des matches uniques (par location et terme)
     return list(matches_dict.values())
@@ -600,56 +649,247 @@ def extract_excerpt(text, term):
     
     return excerpt
 
+def _safe_str(x: Any) -> Optional[str]:
+    if x is None:
+        return None
+    s = str(x).strip()
+    return s if s else None
+
+
+def _format_date_fr(dt: Any) -> str:
+    """
+    Retourne une date au format dd/mm/YYYY, ou 'Non disponible' si inconnue.
+    Accepte datetime / str / autres.
+    """
+    if dt is None:
+        return "Non disponible"
+    if isinstance(dt, datetime):
+        return dt.strftime("%d/%m/%Y")
+    # si c'est déjà une string ISO ou autre, on la laisse (mais propre)
+    return _safe_str(dt) or "Non disponible"
+
+
+def _extract_title(doc: Dict[str, Any]) -> str:
+    # v2
+    drug = doc.get("drug") or {}
+    if _safe_str(drug.get("full_title")):
+        return drug["full_title"]
+    if _safe_str(drug.get("name")):
+        return drug["name"]
+
+    # v1
+    if _safe_str(doc.get("title")):
+        return doc["title"]
+
+    return f"Médicament {doc.get('_id')}"
+
+
+def _extract_source_url(doc: Dict[str, Any]) -> Optional[str]:
+    # v2 : la vraie url est souvent dans source.url (car doc.url peut être null)
+    if _safe_str(doc.get("url")):
+        return doc["url"]
+    source = doc.get("source") or {}
+    return _safe_str(source.get("url"))
+
+
+def _extract_update_date(doc: Dict[str, Any]) -> str:
+    # v2 : document.updated_at
+    d = (doc.get("document") or {}).get("updated_at")
+    if d:
+        return _format_date_fr(d)
+
+    # v1 : update_date
+    return _format_date_fr(doc.get("update_date"))
+
+
+def _extract_medicine_details(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Retourne un dict avec: forme, dosages(list), substances_actives(list), laboratoire
+    Compatible v1/v2.
+    """
+    # v1 direct si présent
+    md = doc.get("medicine_details")
+    if isinstance(md, dict) and md:
+        # normaliser les listes si jamais string
+        dos = md.get("dosages") or []
+        subs = md.get("substances_actives") or []
+        if isinstance(dos, str):
+            dos = [dos]
+        if isinstance(subs, str):
+            subs = [subs]
+        return {
+            "forme": md.get("forme"),
+            "dosages": dos,
+            "substances_actives": subs,
+            "laboratoire": md.get("laboratoire"),
+        }
+
+    # v2 depuis drug
+    drug = doc.get("drug") or {}
+    dosages = drug.get("strengths") or []
+    subs = drug.get("active_substances") or []
+    if isinstance(dosages, str):
+        dosages = [dosages]
+    if isinstance(subs, str):
+        subs = [subs]
+
+    return {
+        "forme": drug.get("form"),
+        "dosages": dosages,
+        "substances_actives": subs,
+        "laboratoire": drug.get("laboratory"),
+    }
+
+
+def _as_legacy_content_item(text: str, formatting: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Ton template attend content_item['text'] et optionnellement content_item['formatting'].
+    """
+    item = {"text": text}
+    if formatting:
+        item["formatting"] = formatting
+    return item
+
+
+def _convert_v2_rcp_sections_to_legacy(rcp_sections: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Convertit v2 rcp.sections (blocks + subsections) vers le format legacy attendu par medicine_details.html:
+    sections: [{title, content:[{text, formatting?...}], subsections:[{title, content:[{text, formatting?...}], subsections:...}]}]
+    """
+    def convert_subsections(subs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        out = []
+        for sub in subs or []:
+            if not isinstance(sub, dict):
+                continue
+
+            sub_title = _safe_str(sub.get("title")) or ""
+            sub_content = []
+            for c in sub.get("content", []) or []:
+                if isinstance(c, dict) and _safe_str(c.get("text")):
+                    # v2: formatting peut être sous "formatting"
+                    sub_content.append(_as_legacy_content_item(c["text"], c.get("formatting")))
+                elif isinstance(c, str) and _safe_str(c):
+                    sub_content.append(_as_legacy_content_item(c))
+
+            out.append({
+                "title": sub_title,
+                "content": sub_content,
+                "subsections": convert_subsections(sub.get("subsections", []) or [])
+            })
+        return out
+
+    legacy_sections = []
+    for sec in rcp_sections or []:
+        if not isinstance(sec, dict):
+            continue
+
+        title = _safe_str(sec.get("title")) or ""
+        content = []
+
+        # v2: blocks = [{text, style{...}}]
+        for b in sec.get("blocks", []) or []:
+            if isinstance(b, dict) and _safe_str(b.get("text")):
+                # On mappe "style" -> "formatting" pour coller au template
+                style = b.get("style") or {}
+                formatting = {
+                    "bold": bool(style.get("bold", False)),
+                    "italic": bool(style.get("italic", False)),
+                    "underline": bool(style.get("underline", False)),
+                    "alignment": style.get("align", "left"),
+                    "list_type": style.get("list"),
+                }
+                content.append(_as_legacy_content_item(b["text"], formatting))
+            elif isinstance(b, str) and _safe_str(b):
+                content.append(_as_legacy_content_item(b))
+
+        subsections = convert_subsections(sec.get("subsections", []) or [])
+
+        legacy_sections.append({
+            "title": title,
+            "content": content,
+            "subsections": subsections,
+        })
+
+    return legacy_sections
+
+
+def to_medicine_view(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Modèle canonique (stable) pour la page medicine_details.html.
+    -> garantit title/update_date/url/medicine_details/sections quelque soit schema v1/v2.
+    """
+    view = dict(doc)  # copie shallow (suffisant pour template)
+
+    view["title"] = _extract_title(doc)
+    view["update_date"] = _extract_update_date(doc)
+    view["url"] = _extract_source_url(doc)
+
+    view["medicine_details"] = _extract_medicine_details(doc)
+
+    # sections
+    if doc.get("sections"):
+        # v1 déjà au bon format
+        view["sections"] = doc["sections"]
+    else:
+        rcp_sections = (doc.get("rcp") or {}).get("sections") or []
+        view["sections"] = _convert_v2_rcp_sections_to_legacy(rcp_sections)
+
+    return view
+
+
 @app.route('/medicine/<id>')
 def medicine_details(id):
-    """Route pour les détails d'un médicament spécifique"""
+    """Route pour les détails d'un médicament spécifique (compatible schema v1/v2)"""
     try:
         medicine = collection.find_one({'_id': ObjectId(id)})
         if not medicine:
             abort(404)
-        
-        # Ajouter le nom extrait comme attribut du médicament
+
+        # ✅ Convertit le document brut (v1 ou v2) vers un modèle stable attendu par le template
+        medicine = to_medicine_view(medicine)
+
+        # ✅ name utilisé ailleurs dans ton front (garde compat)
+        # extract_medicine_name() doit normalement retourner le bon titre (v1/v2)
         medicine['name'] = extract_medicine_name(medicine)
-        
-        # Check if we already have a summary, but don't wait for generation
-        # This allows the page to load quickly
+
+        # ✅ Summary IA (cache) : ne pas bloquer si absent
         existing_summary = None
         if db is not None:
             try:
                 stored_medicine = db.medicines.find_one(
-                    {"_id": ObjectId(id)}, 
+                    {"_id": ObjectId(id)},
                     {"ai_summary": 1}
                 )
                 if stored_medicine and 'ai_summary' in stored_medicine:
                     existing_summary = stored_medicine['ai_summary']
             except Exception as e:
                 print(f"Error checking for cached summary: {e}")
-        
-        # Set the summary if it exists, otherwise it will be loaded via AJAX
+
         medicine['ai_summary'] = existing_summary
-        
-        # Vérifier si le médicament est un favori pour l'utilisateur connecté
+
+        # ✅ Favoris + commentaires
         is_favorite = False
         comments = []
         user_role = None
-        
-        # Si l'utilisateur est connecté, récupérer ses interactions
+
         if 'user_id' in request.cookies:
             from models import Interaction, Comment
             user_id = request.cookies.get('user_id')
             is_favorite = Interaction.is_favorite(user_id, str(medicine['_id']))
+
             user_role = request.cookies.get('role')
             if user_role:
-                user_role = int(user_role)
-            
-            # Récupérer les commentaires pour ce médicament visibles par l'utilisateur
+                try:
+                    user_role = int(user_role)
+                except Exception:
+                    user_role = None
+
             comments = Comment.get_for_medicine(str(medicine['_id']), user_role)
         else:
-            # Même pour les utilisateurs non connectés, récupérer les commentaires publics
             from models import Comment
             comments = Comment.get_for_medicine(str(medicine['_id']))
-        
-        # Ajouter les informations utilisateur à chaque commentaire, que l'utilisateur soit connecté ou non
+
+        # ✅ Ajouter les infos utilisateur à chaque commentaire
         for comment in comments:
             try:
                 comment_user = User.get_by_id(comment['user_id'])
@@ -658,57 +898,88 @@ def medicine_details(id):
                         'first_name': comment_user.get('first_name', 'Utilisateur'),
                         'last_name': comment_user.get('last_name', '')
                     }
+                else:
+                    comment['user'] = {'first_name': 'Utilisateur', 'last_name': ''}
             except Exception as e:
                 print(f"Erreur lors de la récupération des données utilisateur: {e}")
-                # Si on ne peut pas récupérer l'utilisateur, on met un placeholder
-                comment['user'] = {
-                    'first_name': 'Utilisateur',
-                    'last_name': ''
-                }
-        
-        # S'assurer que chaque élément de contenu a un champ html_content
-        if 'sections' in medicine:
+                comment['user'] = {'first_name': 'Utilisateur', 'last_name': ''}
+
+        # ✅ Normaliser content/subcontent pour l'affichage (crée html_content si absent)
+        # Ici on suppose que medicine['sections'] est au format legacy:
+        # sections: [{title, content:[{text, formatting?}], subsections:[{title, content:[...]}]}]
+        if medicine.get('sections'):
             for section in medicine['sections']:
-                if 'content' in section:
-                    for content_item in section['content']:
-                        # Traiter le texte normal
-                        if 'text' in content_item and 'html_content' not in content_item:
-                            # Créer un contenu HTML basique si manquant
-                            text = content_item['text']
-                            # Convertir les sauts de ligne en <br>
+                if not isinstance(section, dict):
+                    continue
+
+                # Section content
+                if section.get('content'):
+                    new_content = []
+                    for item in section['content']:
+                        # item peut être str ou dict{text,...}
+                        if isinstance(item, str) and item.strip():
+                            text = item
                             html_text = text.replace('\n', '<br>')
-                            # Garder le texte simple en HTML mais avec les sauts de ligne
-                            content_item['html_content'] = f"<p>{html_text}</p>"
-                        
-                        # S'assurer que les tableaux sont correctement formatés
-                        if 'table' in content_item and isinstance(content_item['table'], list):
-                            # Le tableau est déjà bien formaté, pas besoin de le modifier
-                            pass
-                
-                # Traiter également les sous-sections
-                if 'subsections' in section:
+                            new_content.append({"text": text, "html_content": f"<p>{html_text}</p>"})
+                        elif isinstance(item, dict) and item.get('text'):
+                            if 'html_content' not in item:
+                                text = str(item['text'])
+                                html_text = text.replace('\n', '<br>')
+                                item['html_content'] = f"<p>{html_text}</p>"
+                            new_content.append(item)
+                    section['content'] = new_content
+
+                # Subsections content (1 niveau)
+                if section.get('subsections'):
                     for subsection in section['subsections']:
-                        if 'content' in subsection:
-                            for content_item in subsection['content']:
-                                # Traiter le texte normal
-                                if 'text' in content_item and 'html_content' not in content_item:
-                                    text = content_item['text']
+                        if not isinstance(subsection, dict):
+                            continue
+                        if subsection.get('content'):
+                            new_sub_content = []
+                            for item in subsection['content']:
+                                if isinstance(item, str) and item.strip():
+                                    text = item
                                     html_text = text.replace('\n', '<br>')
-                                    content_item['html_content'] = f"<p>{html_text}</p>"
-                                
-                                # S'assurer que les tableaux sont correctement formatés
-                                if 'table' in content_item and isinstance(content_item['table'], list):
-                                    # Le tableau est déjà bien formaté, pas besoin de le modifier
-                                    pass
-        
-        # Convertir en JSON pour l'affichage brut
+                                    new_sub_content.append({"text": text, "html_content": f"<p>{html_text}</p>"})
+                                elif isinstance(item, dict) and item.get('text'):
+                                    if 'html_content' not in item:
+                                        text = str(item['text'])
+                                        html_text = text.replace('\n', '<br>')
+                                        item['html_content'] = f"<p>{html_text}</p>"
+                                    new_sub_content.append(item)
+                            subsection['content'] = new_sub_content
+
+                        # (Optionnel mais solide) : si tu as des sous-sous-sections legacy, on normalise aussi
+                        if subsection.get('subsections'):
+                            for subsub in subsection['subsections']:
+                                if not isinstance(subsub, dict):
+                                    continue
+                                if subsub.get('content'):
+                                    new_subsub_content = []
+                                    for item in subsub['content']:
+                                        if isinstance(item, str) and item.strip():
+                                            text = item
+                                            html_text = text.replace('\n', '<br>')
+                                            new_subsub_content.append({"text": text, "html_content": f"<p>{html_text}</p>"})
+                                        elif isinstance(item, dict) and item.get('text'):
+                                            if 'html_content' not in item:
+                                                text = str(item['text'])
+                                                html_text = text.replace('\n', '<br>')
+                                                item['html_content'] = f"<p>{html_text}</p>"
+                                            new_subsub_content.append(item)
+                                    subsub['content'] = new_subsub_content
+
+        # ✅ JSON brut (pour "Afficher JSON")
         medicine_json = json.dumps(bson_to_json(medicine), indent=2, ensure_ascii=False)
-        return render_template('medicine_details.html', 
-                               medicine=medicine, 
-                               medicine_json=medicine_json,
-                               is_favorite=is_favorite,
-                               comments=comments)
-    
+
+        return render_template(
+            'medicine_details.html',
+            medicine=medicine,
+            medicine_json=medicine_json,
+            is_favorite=is_favorite,
+            comments=comments
+        )
+
     except Exception as e:
         print(f"Erreur dans medicine_details: {e}")
         abort(404)
@@ -763,21 +1034,48 @@ def search_results_api():
         # Construction de la requête de recherche
         if search_query:
             search_regex = {'$regex': search_query, '$options': 'i'}
+
             pipeline_filters.append({'$or': [
+                # --- v2 (nouveau schéma)
+                {'drug.name': search_regex},
+                {'drug.full_title': search_regex},
+                {'drug.active_substances': search_regex},
+                {'rcp.search_text': search_regex},
+                {'rcp.sections.title': search_regex},
+                {'rcp.sections.blocks.text': search_regex},
+                {'rcp.sections.subsections.title': search_regex},
+                {'rcp.sections.subsections.content.text': search_regex},
+
+                # --- v1 (ancien schéma)
                 {'title': search_regex},
                 {'medicine_details.substances_actives': search_regex},
-                {'sections.content.text': search_regex},  # Recherche dans les sections
-                {'sections.subsections.content.text': search_regex},
-                {'sections.subsections.subsections.content.text': search_regex}
+                {'sections.content': search_regex},
+                {'sections.subsections.content': search_regex},
+                {'sections.subsections.subsections.content': search_regex},
             ]})
         if substance:
-            pipeline_filters.append({'medicine_details.substances_actives': {'$regex': substance, '$options': 'i'}})
+            pipeline_filters.append({'$or': [
+                {'drug.active_substances': {'$regex': substance, '$options': 'i'}},
+                {'medicine_details.substances_actives': {'$regex': substance, '$options': 'i'}},
+            ]})
+
         if forme:
-            pipeline_filters.append({'medicine_details.forme': {'$regex': forme, '$options': 'i'}})
+            pipeline_filters.append({'$or': [
+                {'drug.form': {'$regex': forme, '$options': 'i'}},
+                {'medicine_details.forme': {'$regex': forme, '$options': 'i'}},
+            ]})
+
         if laboratoire:
-            pipeline_filters.append({'medicine_details.laboratoire': {'$regex': laboratoire, '$options': 'i'}})
+            pipeline_filters.append({'$or': [
+                {'drug.laboratory': {'$regex': laboratoire, '$options': 'i'}},
+                {'medicine_details.laboratoire': {'$regex': laboratoire, '$options': 'i'}},
+            ]})
+
         if dosage:
-            pipeline_filters.append({'medicine_details.dosages': {'$regex': dosage, '$options': 'i'}})
+            pipeline_filters.append({'$or': [
+                {'drug.strengths': {'$regex': dosage, '$options': 'i'}},
+                {'medicine_details.dosages': {'$regex': dosage, '$options': 'i'}},
+            ]})
 
         # Combiner les filtres avec $and
         if pipeline_filters:
@@ -817,13 +1115,18 @@ def search_results_api():
                 medicine['search_matches'] = []
             formatted_results.append({
                 'id': str(medicine['_id']),
-                'title': medicine['title'],
-                'update_date': medicine.get('update_date', 'Non disponible'),
+                'title': get_display_title(medicine),
+                'update_date': get_update_date(medicine),
+
+                # garder les 2 pour le front (compat)
+                'drug': medicine.get('drug', {}),
                 'medicine_details': medicine.get('medicine_details', {}),
-                'relevance_score': relevance_score,  # Inclure le score de pertinence
+
+                'relevance_score': relevance_score,
                 'match_count': medicine.get('match_count', 0),
-                'search_matches': medicine['search_matches']
+                'search_matches': medicine.get('search_matches', [])
             })
+
 
         # Calculer s'il y a plus de résultats
         has_more = (page * per_page) < total_results
@@ -857,27 +1160,55 @@ def search_results_api_stream():
     # Construction de la requête de recherche
     if search_query:
         search_regex = {'$regex': search_query, '$options': 'i'}
+
         pipeline_filters.append({'$or': [
+            # --- v2 (nouveau schéma)
+            {'drug.name': search_regex},
+            {'drug.full_title': search_regex},
+            {'drug.active_substances': search_regex},
+            {'rcp.search_text': search_regex},
+            {'rcp.sections.title': search_regex},
+            {'rcp.sections.blocks.text': search_regex},
+            {'rcp.sections.subsections.title': search_regex},
+            {'rcp.sections.subsections.content.text': search_regex},
+
+            # --- v1 (ancien schéma)
             {'title': search_regex},
             {'medicine_details.substances_actives': search_regex},
-            {'sections.content.text': search_regex},  # Recherche dans les sections
-            {'sections.subsections.content.text': search_regex},
-            {'sections.subsections.subsections.content.text': search_regex}
+            {'sections.content': search_regex},
+            {'sections.subsections.content': search_regex},
+            {'sections.subsections.subsections.content': search_regex},
         ]})
     if substance:
-        pipeline_filters.append({'medicine_details.substances_actives': {'$regex': substance, '$options': 'i'}})
+        pipeline_filters.append({'$or': [
+            {'drug.active_substances': {'$regex': substance, '$options': 'i'}},
+            {'medicine_details.substances_actives': {'$regex': substance, '$options': 'i'}},
+        ]})
+
     if forme:
-        pipeline_filters.append({'medicine_details.forme': {'$regex': forme, '$options': 'i'}})
+        pipeline_filters.append({'$or': [
+            {'drug.form': {'$regex': forme, '$options': 'i'}},
+            {'medicine_details.forme': {'$regex': forme, '$options': 'i'}},
+        ]})
+
     if laboratoire:
-        pipeline_filters.append({'medicine_details.laboratoire': {'$regex': laboratoire, '$options': 'i'}})
+        pipeline_filters.append({'$or': [
+            {'drug.laboratory': {'$regex': laboratoire, '$options': 'i'}},
+            {'medicine_details.laboratoire': {'$regex': laboratoire, '$options': 'i'}},
+        ]})
+
     if dosage:
-        pipeline_filters.append({'medicine_details.dosages': {'$regex': dosage, '$options': 'i'}})
+        pipeline_filters.append({'$or': [
+            {'drug.strengths': {'$regex': dosage, '$options': 'i'}},
+            {'medicine_details.dosages': {'$regex': dosage, '$options': 'i'}},
+        ]})
 
     # Combiner les filtres avec $and
     if pipeline_filters:
         query['$and'] = pipeline_filters
 
     def generate():
+        formatted_results = []
         total_results = collection.count_documents(query) # Calculer le nombre total de résultats
         
         # Envoyer le nombre total de résultats
@@ -905,8 +1236,8 @@ def search_results_api_stream():
                 'search_matches': medicine['search_matches']
             }
             
-            # Convertir le résultat en JSON
-            json_result = json.dumps(formatted_result, ensure_ascii=False)
+            
+            json_result = json.dumps(formatted_results[-1], ensure_ascii=False)
             
             # Envoyer le résultat via le flux d'événements
             yield f"data: {json_result}\n\n"
@@ -937,7 +1268,7 @@ def internal_server_error(e):
 def inject_user_and_date():
     return {
         'user': g.get('user', None),
-        'now': datetime.datetime.now()
+        'now': datetime.now()
     }
 
 @app.route('/api/toggle-favorite/<medicine_id>', methods=['POST'])

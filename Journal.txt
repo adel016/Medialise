@@ -11,3 +11,26 @@ Donc là on a deux possibilité soit :
 
 1 - Faire sembalnt comme si ça a tous scrapper et scrapper d'autres Src
 2 - Faire un gros demi tour et esseyr de scrapper les pdf 
+
+
+
+
+
+Adel message pour Malik :
+____________________________________
+
+ava,t de lancer le scrapping total vérifie dans run_agno.py à la fin du fichier 
+
+que la limite à été lever pour la pipline ANSM|HTML qui est cette ligne :
+run_batch(limit=None, sleep_s=0.2) # lancement du scrapping ANSM|HTML
+
+
+Ensuite lance la commande depuis la raçine du projet medialise :
+
+py -m scrapers.run_agno
+
+
+
+
+python -m venv .venv
+.\.venv\Scripts\activate
