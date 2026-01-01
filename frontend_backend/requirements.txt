@@ -17,3 +17,4 @@ openpyxl
 qdrant-client
 sentence_transformers
 qdrant-client>=1.6.0
+agno
