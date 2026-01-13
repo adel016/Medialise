@@ -9,6 +9,8 @@ import datetime
 import os
 import sys
 import subprocess
+import signal
+
 
 # Création du Blueprint utilisateur
 users_bp = Blueprint('users', __name__, template_folder='templates')
@@ -483,8 +485,16 @@ def admin_database():
                          .sort("last_scraped", -1).limit(5))
     
     # Récupérer des statistiques de base
-    lab_count = len(db.medicines.distinct("medicine_details.laboratoire"))
-    substance_count = len(db.medicines.distinct("medicine_details.substances_actives"))
+    lab_count = len(db.medicines.distinct(
+        "metadata.medicine_details.laboratoire",
+        {"metadata.medicine_details.laboratoire": {"$nin": [None, ""]}}
+    ))
+
+    substance_count = len(db.medicines.distinct(
+        "metadata.medicine_details.substances_actives",
+        {"metadata.medicine_details.substances_actives": {"$exists": True, "$ne": []}}
+    ))
+
     
     # Import datetime pour le contexte du template
     import datetime
@@ -505,51 +515,90 @@ def admin_database():
 @users_bp.route('/admin/run_scraper', methods=['POST'])
 @role_required(models.User.ROLE_ADMIN)
 def admin_run_scraper():
-    """Lance le pipeline de scraping ANSM et écrit les logs dans frontend_backend/logs/scraping.log en local,
-    ou /app/logs/scraping.log dans le conteneur Docker.
     """
-    # 1) Racine du projet
-    if os.path.exists("/app"):
-        project_root = "/app"
+    Lance scrapers.run_agno en arrière-plan.
+    - Empêche les doubles runs via un lock.
+    - Écrit les logs dans scraping_current.log.
+    - Stocke le PID pour pouvoir arrêter.
+    """
+    in_docker = os.path.exists("/app")
+
+    if in_docker:
+        project_root = "/app"   # /app = frontend_backend (monté par docker-compose)
         logs_dir = "/app/logs"
     else:
-        # on est en local : racine = dossier Medialise, logs = frontend_backend/logs
         project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
         logs_dir = os.path.join(os.path.dirname(__file__), "logs")
 
     os.makedirs(logs_dir, exist_ok=True)
-    scraping_log_path = os.path.join(logs_dir, "scraping.log")
 
-    # On vide le fichier à chaque nouveau run
-    with open(scraping_log_path, "w", encoding="utf-8") as f:
-        f.write("Lancement du pipeline scrapers...\n")
+    log_path = os.path.join(logs_dir, "scraping_current.log")
+    lock_path = os.path.join(logs_dir, "scraping.lock")
+    pid_path = os.path.join(logs_dir, "scraping.pid")
 
-    # 3) Commandes à exécuter
-    cmds = [
-        [sys.executable, "-m", "scrapers.test_agno_pipeline"],
-        [sys.executable, "-m", "scrapers.import_json_to_mongo"],
-    ]
+    # Si déjà en cours
+    if os.path.exists(lock_path) and os.path.exists(pid_path):
+        try:
+            with open(pid_path, "r", encoding="utf-8") as f:
+                pid = f.read().strip()
+            return jsonify({"ok": True, "already_running": True, "pid": pid}), 200
+        except Exception:
+            return jsonify({"ok": True, "already_running": True}), 200
 
-    # 4) Lancer les commandes en redirigeant stdout/stderr vers scraping.log
-    with open(scraping_log_path, "a", encoding="utf-8") as log_file:
-        for cmd in cmds:
-            log_file.write(f"\n=== Lancement de la commande : {' '.join(cmd)} ===\n")
+    # Reset log + lock
+    with open(log_path, "w", encoding="utf-8") as f:
+        f.write("Lancement du pipeline scrapers (run_agno)...\n")
+
+    with open(lock_path, "w", encoding="utf-8") as f:
+        f.write("locked\n")
+
+    # Compat chemins scrapers : /app == frontend_backend dans docker
+    # Les scrapers utilisent parfois "frontend_backend/..." => alias /app/frontend_backend -> /app
+    if in_docker:
+        fb_alias = os.path.join(project_root, "frontend_backend")
+        try:
+            if not os.path.exists(fb_alias):
+                os.symlink(project_root, fb_alias)
+        except Exception:
+            # pas bloquant
+            pass
+
+    cmd = [sys.executable, "-m", "scrapers.run_agno"]
+
+    # Démarrage en arrière-plan
+    try:
+        with open(log_path, "a", encoding="utf-8") as log_file:
+            log_file.write(f"\n=== CMD: {' '.join(cmd)} ===\n")
             log_file.flush()
 
-            subprocess.run(
+            proc = subprocess.Popen(
                 cmd,
                 cwd=project_root,
                 stdout=log_file,
                 stderr=log_file,
-                check=True,
             )
 
-        log_file.write("\n=== PIPELINE TERMINÉ ===\n")
-        log_file.flush()
+        # Sauvegarde PID
+        with open(pid_path, "w", encoding="utf-8") as f:
+            f.write(str(proc.pid))
 
-    return jsonify({"status": "ok"})
-# ...existing code...
+        return jsonify({"ok": True, "started": True, "pid": proc.pid}), 200
 
+    except Exception as e:
+        # Nettoyage lock si échec
+        try:
+            if os.path.exists(lock_path):
+                os.remove(lock_path)
+            if os.path.exists(pid_path):
+                os.remove(pid_path)
+        except Exception:
+            pass
+
+        with open(log_path, "a", encoding="utf-8") as log_file:
+            log_file.write(f"\n=== ERREUR LANCEMENT ===\n{e}\n")
+            log_file.flush()
+
+        return jsonify({"ok": False, "error": str(e)}), 200
 
 # ...existing code...
 @users_bp.route('/admin/get_logs')
@@ -568,7 +617,7 @@ def admin_get_logs():
         # dossier logs à côté de ce fichier
         logs_dir = os.path.join(os.path.dirname(__file__), "logs")
 
-    log_path = os.path.join(logs_dir, "scraping.log")
+    log_path = os.path.join(logs_dir, "scraping_current.log")
 
     if not os.path.exists(log_path):
         return jsonify({
@@ -590,6 +639,47 @@ def admin_get_logs():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e), "logs": []}), 200
 # ...existing code...
+
+
+@users_bp.route('/admin/stop_scraper', methods=['POST'])
+@role_required(models.User.ROLE_ADMIN)
+def admin_stop_scraper():
+    in_docker = os.path.exists("/app")
+
+    if in_docker:
+        logs_dir = "/app/logs"
+    else:
+        logs_dir = os.path.join(os.path.dirname(__file__), "logs")
+
+    pid_path = os.path.join(logs_dir, "scraping.pid")
+    lock_path = os.path.join(logs_dir, "scraping.lock")
+    log_path = os.path.join(logs_dir, "scraping_current.log")
+
+    if not os.path.exists(pid_path):
+        return jsonify({"ok": False, "error": "Aucun scraping en cours (pid absent)."}), 200
+
+    try:
+        with open(pid_path, "r", encoding="utf-8") as f:
+            pid = int(f.read().strip())
+
+        # tente SIGTERM
+        os.kill(pid, signal.SIGTERM)
+
+        # nettoyage
+        if os.path.exists(pid_path):
+            os.remove(pid_path)
+        if os.path.exists(lock_path):
+            os.remove(lock_path)
+
+        with open(log_path, "a", encoding="utf-8") as log_file:
+            log_file.write("\n=== STOP demandé (SIGTERM) ===\n")
+            log_file.flush()
+
+        return jsonify({"ok": True, "stopped": True, "pid": pid}), 200
+
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 200
+
 
 # @users_bp.route('/admin/scraper/status', methods=['GET'])
 # @role_required(models.User.ROLE_ADMIN)
@@ -624,32 +714,7 @@ def admin_get_logs():
 
 # @users_bp.route('/admin/scraper/stop', methods=['POST'])
 # @role_required(models.User.ROLE_ADMIN)
-# def admin_stop_scraper():
-#     """Arrêter le processus de scraping en cours"""
-#     if hasattr(run_scraper, 'is_running') and run_scraper.is_running:
-#         # Signaler au scraper qu'il doit s'arrêter
-#         print("Demande d'arrêt du scraping reçue...")
-#         run_scraper.stop_requested = True
-        
-#         # Ajouter également un message dans les logs
-#         timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-#         run_scraper.logs.append({
-#             "id": run_scraper.next_log_id,
-#             "timestamp": timestamp,
-#             "message": "Demande d'arrêt du scraping reçue. Arrêt en cours...",
-#             "level": "warning"
-#         })
-#         run_scraper.next_log_id += 1
-        
-#         return jsonify({
-#             "status": "stopped",
-#             "message": "Demande d'arrêt envoyée"
-#         })
-#     else:
-#         return jsonify({
-#             "status": "error",
-#             "message": "Aucun processus de scraping en cours"
-#         })
+
 
 # Fonction pour initialiser le blueprint avec l'application Flask
 def init_users(app):

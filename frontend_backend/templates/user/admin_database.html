@@ -335,10 +335,8 @@
                         </form>
                         <p class="text-muted" style="margin-top: 10px;">
                             <small>
-                                Ce bouton lance le nouveau pipeline :<br>
-                                <code>python -m scrapers.test_agno_pipeline</code><br>
-                                puis<br>
-                                <code>python -m scrapers.import_json_to_mongo</code>
+                                Ce bouton lance :
+                                <code>python -m scrapers.run_agno</code>
                             </small>
                         </p>
                         
@@ -408,6 +406,22 @@
     
 
     <script>
+const stopBtn = document.getElementById('stop-scraper-btn');
+if (stopBtn) {
+  stopBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    fetch("{{ url_for('users.admin_stop_scraper') }}", {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    })
+    .then(r => r.json())
+    .then(data => {
+      appendLogLine("=== STOP demandé ===");
+    })
+    .catch(err => console.error(err));
+  });
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('scraper-form');
     const button = document.getElementById('run-scraper-btn');

@@ -159,8 +159,16 @@ def index():
     total_medicines = collection.count_documents({})
     
     # Récupérer des statistiques de base
-    lab_count = len(db.medicines.distinct("medicine_details.laboratoire"))
-    substance_count = len(db.medicines.distinct("medicine_details.substances_actives"))
+    lab_count = len(db.medicines.distinct(
+        "metadata.medicine_details.laboratoire",
+        {"metadata.medicine_details.laboratoire": {"$nin": [None, ""]}}
+    ))
+
+    substance_count = len(db.medicines.distinct(
+        "metadata.medicine_details.substances_actives",
+        {"metadata.medicine_details.substances_actives": {"$exists": True, "$ne": []}}
+    ))
+
     
     # Récupérer les médicaments les plus récemment mis à jour pour la section "featured"
     featured_medicines = list(db.medicines.find({}, {"title": 1, "update_date": 1})
