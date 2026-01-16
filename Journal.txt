@@ -34,3 +34,31 @@ py -m scrapers.run_agno
 
 python -m venv .venv
 .\.venv\Scripts\activate
+
+
+
+
+
+Pour lancer tout le scrapping sans télécharger les pdf recommandé pour l'instant par Adel car il n y a pas d'exploitation de PDF pour l'instant : 
+_______________________________________________________________________________
+python -m scrapers.run_agno --mode all --no-pdf
+################################################################################
+################################################################################
+
+Scraping RCP HTML (ANSM/BDPM) – mode “ancien” :
+_________________________________________________________
+python -m scrapers.run_agno --mode ansm_html
+################################################################################
+################################################################################
+
+Pour enrichir la base notament avec les condtion de prescription (CPD) il faut :
+_______________________________________________________________________________
+python -m scrapers.run_agno --mode cpd --sleep 0
+################################################################################
+################################################################################
+
+Enrichissement “SMR/ASMR” (HAS via BDPM)
+____________________________________________
+python -m scrapers.run_agno --mode smr_asmr --sleep 0
+################################################################################
+################################################################################

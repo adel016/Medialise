@@ -1,4 +1,6 @@
+# scrapers/run_agno.py
 import time
+import argparse
 import pandas as pd
 
 from scrapers.sources.ansm_html import scrape_html
@@ -6,20 +8,23 @@ from scrapers.import_json_to_mongo import upsert_document
 from scrapers.sources.ansm_extrait import scrape_extrait
 from scrapers.sources.bdpm_cis import iter_cis_codes
 from scrapers.sources.pdf_downloader import download_pdf
+from scrapers.sources.bdpm_cpd import enrich_medicines_with_cpd
+from scrapers.sources.bdpm_smr_asmr import enrich_medicines_with_smr_asmr
 
 from scrapers.pipeline.source_context import SourceContext, inject_source_context
 
 
 BDPM_CIS_PATH = "data/bdpm/CIS_bdpm.csv"
+BDPM_CPD_PATH = "data/bdpm/CIS_CPD_bdpm.csv"
+BDPM_ASMR_PATH = "data/bdpm/CIS_HAS_ASMR_bdpm.csv"
+BDPM_SMR_PATH = "data/bdpm/CIS_HAS_SMR_bdpm.csv"
 
 EXCEL_PATH = "frontend_backend/scripts/liens_R.xlsx"
 SHEET_NAME = "liens_R"
 URL_COLUMN = "liens"
 PDF_OUT_ROOT = "data/pdfs"
-DOWNLOAD_PDFS = True
 
 
-# --- Contextes déclaratifs ---
 CTX_FR_BDPM_RCP_HTML = SourceContext(
     country="FR",
     authority="ANSM/BDPM",
@@ -44,6 +49,7 @@ def normalize_url(url: str) -> str:
 
 
 def run_batch(limit: int | None = None, sleep_s: float = 0.2):
+    """Scraping ANSM/BDPM RCP HTML via l'Excel (liens_R.xlsx)"""
     df = pd.read_excel(EXCEL_PATH, sheet_name=SHEET_NAME)
 
     if URL_COLUMN not in df.columns:
@@ -74,10 +80,7 @@ def run_batch(limit: int | None = None, sleep_s: float = 0.2):
         print(f"[{i}/{total}] {url}")
         try:
             doc = scrape_html(url)
-
-            # ✅ Injection déclarative (pas de déduction par URL)
             doc = inject_source_context(doc, CTX_FR_BDPM_RCP_HTML)
-
             upsert_document(doc)
             ok += 1
         except Exception as e:
@@ -87,12 +90,13 @@ def run_batch(limit: int | None = None, sleep_s: float = 0.2):
         if sleep_s > 0:
             time.sleep(sleep_s)
 
-    print("\n=== TERMINÉ ===")
+    print("\n=== TERMINÉ ANSM|HTML ===")
     print(f"✔ OK : {ok}")
     print(f"❌ KO : {ko}")
 
 
-def run_bdpm_extrait_batch(limit: int | None = None, sleep_s: float = 0.2):
+def run_bdpm_extrait_batch(limit: int | None = None, sleep_s: float = 0.2, download_pdfs: bool = True):
+    """Scraping BDPM /extrait via CIS_bdpm.csv + téléchargement PDFs si demandé"""
     cis_list = iter_cis_codes(BDPM_CIS_PATH)
 
     if limit is not None:
@@ -110,15 +114,13 @@ def run_bdpm_extrait_batch(limit: int | None = None, sleep_s: float = 0.2):
 
         try:
             doc = scrape_extrait(extrait_url)
-
-            # ✅ Injection déclarative
             doc = inject_source_context(doc, CTX_FR_BDPM_EXTRAIT)
 
             cis_meta = doc.get("metadata", {}).get("cis") or cis_code
             pdf_links = doc.get("pdf_links", [])
             print("   pdf_links:", len(pdf_links))
 
-            if not DOWNLOAD_PDFS:
+            if not download_pdfs:
                 upsert_document(doc)
                 ok += 1
                 continue
@@ -161,6 +163,71 @@ def run_bdpm_extrait_batch(limit: int | None = None, sleep_s: float = 0.2):
     print(f"❌ KO : {ko}")
 
 
+def run_cpd_enrichment(sleep_s: float = 0.0):
+    """Enrichissement BDPM CPD (conditions de prescription) sur la base Mongo existante"""
+    stats = enrich_medicines_with_cpd(
+        collection_name="medicines",
+        cpd_path=BDPM_CPD_PATH,
+        sleep_s=sleep_s
+    )
+    print("\n=== TERMINÉ BDPM CPD (enrichissement) ===")
+    print(f"Docs scannés : {stats['scanned']}")
+    print(f"Docs avec CPD: {stats['with_cpd']}")
+    print(f"Docs modifiés: {stats['modified']}")
+
+
+def run_smr_asmr_enrichment(sleep_s: float = 0.0):
+    """Enrichissement BDPM SMR/ASMR sur la base Mongo existante"""
+    stats = enrich_medicines_with_smr_asmr(
+        collection_name="medicines",
+        asmr_path=BDPM_ASMR_PATH,
+        smr_path=BDPM_SMR_PATH,
+        sleep_s=sleep_s
+    )
+    print("\n=== TERMINÉ BDPM SMR/ASMR (enrichissement) ===")
+    print(f"Docs scannés : {stats['scanned']}")
+    print(f"Docs avec SMR/ASMR: {stats['with_any_smr_asmr']}")
+    print(f"Docs modifiés: {stats['modified']}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="MEDIALISE - pipeline scraping/enrichissement")
+    parser.add_argument(
+        "--mode",
+        choices=["ansm_html", "bdpm_extrait", "cpd", "smr_asmr", "all"],
+        default="ansm_html",
+        help="ansm_html=RCP HTML via Excel, bdpm_extrait=/extrait via CIS_bdpm.csv, cpd=CPD, smr_asmr=SMR+ASMR, all=tout",
+    )
+    parser.add_argument("--limit", type=int, default=None, help="Limite le nombre d'items (URLs ou CIS)")
+    parser.add_argument("--sleep", type=float, default=0.2, help="Pause entre items (secondes)")
+    parser.add_argument("--no-pdf", action="store_true", help="Désactive le téléchargement des PDFs en mode bdpm_extrait/all")
+
+    args = parser.parse_args()
+    download_pdfs = not args.no_pdf
+
+    if args.mode == "ansm_html":
+        run_batch(limit=args.limit, sleep_s=args.sleep)
+        return
+
+    if args.mode == "bdpm_extrait":
+        run_bdpm_extrait_batch(limit=args.limit, sleep_s=args.sleep, download_pdfs=download_pdfs)
+        return
+
+    if args.mode == "cpd":
+        run_cpd_enrichment(sleep_s=args.sleep)
+        return
+
+    if args.mode == "smr_asmr":
+        run_smr_asmr_enrichment(sleep_s=args.sleep)
+        return
+
+    if args.mode == "all":
+        run_batch(limit=args.limit, sleep_s=args.sleep)
+        run_bdpm_extrait_batch(limit=args.limit, sleep_s=args.sleep, download_pdfs=download_pdfs)
+        run_cpd_enrichment(sleep_s=args.sleep)
+        run_smr_asmr_enrichment(sleep_s=args.sleep)
+        return
+
+
 if __name__ == "__main__":
-    run_batch(limit=None, sleep_s=0.2) # lancement du scrapping ANSM|HTML
-    #run_bdpm_extrait_batch(limit=None, sleep_s=0.2)
+    main()
