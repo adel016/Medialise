@@ -25,14 +25,13 @@ SHEET_NAME = "liens_R"
 URL_COLUMN = "liens"
 PDF_OUT_ROOT = "data/pdfs"
 
-
 CTX_FR_BDPM_RCP_HTML = SourceContext(
     country="FR",
     authority="ANSM/BDPM",
     lang="fr",
     site="bdpm",
     doc_type="RCP_HTML",
-    dataset="BDPM"
+    dataset="BDPM",
 )
 
 CTX_FR_BDPM_EXTRAIT = SourceContext(
@@ -41,7 +40,7 @@ CTX_FR_BDPM_EXTRAIT = SourceContext(
     lang="fr",
     site="bdpm",
     doc_type="EXTRAIT_HTML",
-    dataset="BDPM"
+    dataset="BDPM",
 )
 
 
@@ -165,11 +164,10 @@ def run_bdpm_extrait_batch(limit: int | None = None, sleep_s: float = 0.2, downl
 
 
 def run_cpd_enrichment(sleep_s: float = 0.0):
-    """Enrichissement BDPM CPD (conditions de prescription) sur la base Mongo existante"""
     stats = enrich_medicines_with_cpd(
         collection_name="medicines",
         cpd_path=BDPM_CPD_PATH,
-        sleep_s=sleep_s
+        sleep_s=sleep_s,
     )
     print("\n=== TERMINÉ BDPM CPD (enrichissement) ===")
     print(f"Docs scannés : {stats['scanned']}")
@@ -178,24 +176,23 @@ def run_cpd_enrichment(sleep_s: float = 0.0):
 
 
 def run_smr_asmr_enrichment(sleep_s: float = 0.0):
-    """Enrichissement BDPM SMR/ASMR sur la base Mongo existante"""
     stats = enrich_medicines_with_smr_asmr(
         collection_name="medicines",
         asmr_path=BDPM_ASMR_PATH,
         smr_path=BDPM_SMR_PATH,
-        sleep_s=sleep_s
+        sleep_s=sleep_s,
     )
     print("\n=== TERMINÉ BDPM SMR/ASMR (enrichissement) ===")
     print(f"Docs scannés : {stats['scanned']}")
     print(f"Docs avec SMR/ASMR: {stats['with_any_smr_asmr']}")
     print(f"Docs modifiés: {stats['modified']}")
 
+
 def run_compo_enrichment(sleep_s: float = 0.0):
-    """Enrichissement BDPM COMPO (composition / substances) sur la base Mongo existante"""
     stats = enrich_medicines_with_compo(
         collection_name="medicines",
         compo_path=BDPM_COMPO_PATH,
-        sleep_s=sleep_s
+        sleep_s=sleep_s,
     )
     print("\n=== TERMINÉ BDPM COMPO (enrichissement) ===")
     print(f"Docs scannés : {stats['scanned']}")
@@ -203,17 +200,42 @@ def run_compo_enrichment(sleep_s: float = 0.0):
     print(f"Docs modifiés: {stats['modified']}")
 
 
+def run_theriaque_enrichment(*, theriaque_phpsessid: str | None, theriaque_authchallenge: str | None, limit: int | None = None):
+    """Enrichissement Thériaque INTER (interactions médicamenteuses)"""
+    from scrapers.agno_agent import enrich_theriaque_interactions_impl
+
+    print("[THERIAQUE] run_theriaque_enrichment() CALLED")
+
+    if not theriaque_phpsessid or not theriaque_authchallenge:
+        print("[THERIAQUE] ❌ Cookies manquants.")
+        print("  -> Fournis: --theriaque-phpsessid + --theriaque-authchallenge")
+        return
+
+    result = enrich_theriaque_interactions_impl(
+        theriaque_phpsessid=theriaque_phpsessid,
+        theriaque_authchallenge=theriaque_authchallenge,
+        limit=limit,
+    )
+
+
+    print("\n=== TERMINÉ THÉRIAQUE INTERACTIONS ===")
+    print(result)
+
+
 def main():
     parser = argparse.ArgumentParser(description="MEDIALISE - pipeline scraping/enrichissement")
     parser.add_argument(
         "--mode",
-        choices=["ansm_html", "bdpm_extrait", "cpd", "smr_asmr", "compo", "all"],
+        choices=["ansm_html", "bdpm_extrait", "cpd", "smr_asmr", "compo", "theriaque", "all"],
         default="ansm_html",
-        help="ansm_html=RCP HTML via Excel, bdpm_extrait=/extrait via CIS_bdpm.csv, cpd=CPD, smr_asmr=SMR+ASMR, compo=COMPO, all=tout",
+        help="ansm_html=RCP HTML via Excel, bdpm_extrait=/extrait via CIS_bdpm.csv, cpd=CPD, smr_asmr=SMR+ASMR, compo=COMPO, theriaque=INTER, all=tout",
     )
     parser.add_argument("--limit", type=int, default=None, help="Limite le nombre d'items (URLs ou CIS)")
     parser.add_argument("--sleep", type=float, default=0.2, help="Pause entre items (secondes)")
     parser.add_argument("--no-pdf", action="store_true", help="Désactive le téléchargement des PDFs en mode bdpm_extrait/all")
+
+    parser.add_argument("--theriaque-phpsessid", type=str, default=None, help="Cookie Thériaque PHPSESSID")
+    parser.add_argument("--theriaque-authchallenge", type=str, default=None, help="Cookie Thériaque authchallenge")
 
     args = parser.parse_args()
     download_pdfs = not args.no_pdf
@@ -233,9 +255,17 @@ def main():
     if args.mode == "smr_asmr":
         run_smr_asmr_enrichment(sleep_s=args.sleep)
         return
-    
+
     if args.mode == "compo":
         run_compo_enrichment(sleep_s=args.sleep)
+        return
+
+    if args.mode == "theriaque":
+        run_theriaque_enrichment(
+            theriaque_phpsessid=args.theriaque_phpsessid,
+            theriaque_authchallenge=args.theriaque_authchallenge,
+            limit=args.limit,
+        )
         return
 
     if args.mode == "all":
@@ -244,6 +274,10 @@ def main():
         run_cpd_enrichment(sleep_s=args.sleep)
         run_smr_asmr_enrichment(sleep_s=args.sleep)
         run_compo_enrichment(sleep_s=args.sleep)
+        run_theriaque_enrichment(
+            theriaque_phpsessid=args.theriaque_phpsessid,
+            theriaque_authchallenge=args.theriaque_authchallenge,
+        )
         return
 
 
