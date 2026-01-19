@@ -10,14 +10,15 @@ from scrapers.sources.bdpm_cis import iter_cis_codes
 from scrapers.sources.pdf_downloader import download_pdf
 from scrapers.sources.bdpm_cpd import enrich_medicines_with_cpd
 from scrapers.sources.bdpm_smr_asmr import enrich_medicines_with_smr_asmr
+from scrapers.sources.bdpm_compo import enrich_medicines_with_compo
 
 from scrapers.pipeline.source_context import SourceContext, inject_source_context
-
 
 BDPM_CIS_PATH = "data/bdpm/CIS_bdpm.csv"
 BDPM_CPD_PATH = "data/bdpm/CIS_CPD_bdpm.csv"
 BDPM_ASMR_PATH = "data/bdpm/CIS_HAS_ASMR_bdpm.csv"
 BDPM_SMR_PATH = "data/bdpm/CIS_HAS_SMR_bdpm.csv"
+BDPM_COMPO_PATH = "data/bdpm/CIS_COMPO_bdpm.csv"
 
 EXCEL_PATH = "frontend_backend/scripts/liens_R.xlsx"
 SHEET_NAME = "liens_R"
@@ -189,14 +190,26 @@ def run_smr_asmr_enrichment(sleep_s: float = 0.0):
     print(f"Docs avec SMR/ASMR: {stats['with_any_smr_asmr']}")
     print(f"Docs modifiés: {stats['modified']}")
 
+def run_compo_enrichment(sleep_s: float = 0.0):
+    """Enrichissement BDPM COMPO (composition / substances) sur la base Mongo existante"""
+    stats = enrich_medicines_with_compo(
+        collection_name="medicines",
+        compo_path=BDPM_COMPO_PATH,
+        sleep_s=sleep_s
+    )
+    print("\n=== TERMINÉ BDPM COMPO (enrichissement) ===")
+    print(f"Docs scannés : {stats['scanned']}")
+    print(f"Docs avec COMPO: {stats['with_compo']}")
+    print(f"Docs modifiés: {stats['modified']}")
+
 
 def main():
     parser = argparse.ArgumentParser(description="MEDIALISE - pipeline scraping/enrichissement")
     parser.add_argument(
         "--mode",
-        choices=["ansm_html", "bdpm_extrait", "cpd", "smr_asmr", "all"],
+        choices=["ansm_html", "bdpm_extrait", "cpd", "smr_asmr", "compo", "all"],
         default="ansm_html",
-        help="ansm_html=RCP HTML via Excel, bdpm_extrait=/extrait via CIS_bdpm.csv, cpd=CPD, smr_asmr=SMR+ASMR, all=tout",
+        help="ansm_html=RCP HTML via Excel, bdpm_extrait=/extrait via CIS_bdpm.csv, cpd=CPD, smr_asmr=SMR+ASMR, compo=COMPO, all=tout",
     )
     parser.add_argument("--limit", type=int, default=None, help="Limite le nombre d'items (URLs ou CIS)")
     parser.add_argument("--sleep", type=float, default=0.2, help="Pause entre items (secondes)")
@@ -220,12 +233,17 @@ def main():
     if args.mode == "smr_asmr":
         run_smr_asmr_enrichment(sleep_s=args.sleep)
         return
+    
+    if args.mode == "compo":
+        run_compo_enrichment(sleep_s=args.sleep)
+        return
 
     if args.mode == "all":
         run_batch(limit=args.limit, sleep_s=args.sleep)
         run_bdpm_extrait_batch(limit=args.limit, sleep_s=args.sleep, download_pdfs=download_pdfs)
         run_cpd_enrichment(sleep_s=args.sleep)
         run_smr_asmr_enrichment(sleep_s=args.sleep)
+        run_compo_enrichment(sleep_s=args.sleep)
         return
 
 
