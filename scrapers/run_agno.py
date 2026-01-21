@@ -221,12 +221,51 @@ def run_theriaque_enrichment(*, theriaque_phpsessid: str | None, theriaque_authc
     print("\n=== TERMINÉ THÉRIAQUE INTERACTIONS ===")
     print(result)
 
+def run_theriaque_c_indic_enrichment(*, theriaque_phpsessid: str | None, theriaque_authchallenge: str | None, limit: int | None = None):
+    """Enrichissement Thériaque C_INDIC (contre-indications)"""
+    from scrapers.agno_agent import enrich_theriaque_c_indic_impl
+
+    print("[THERIAQUE] run_theriaque_c_indic_enrichment() CALLED")
+
+    if not theriaque_phpsessid or not theriaque_authchallenge:
+        print("[THERIAQUE] ❌ Cookies manquants.")
+        print("  -> Fournis: --theriaque-phpsessid + --theriaque-authchallenge")
+        return
+
+    result = enrich_theriaque_c_indic_impl(
+        theriaque_phpsessid=theriaque_phpsessid,
+        theriaque_authchallenge=theriaque_authchallenge,
+        limit_docs=limit,
+    )
+
+    print("\n=== TERMINÉ THÉRIAQUE CONTRE-INDICATIONS (C_INDIC) ===")
+    print(result)
+
+def run_theriaque_indic_enrichment(*, theriaque_phpsessid: str | None, theriaque_authchallenge: str | None, limit: int | None = None):
+    """Enrichissement Thériaque INDIC (indications)"""
+    from scrapers.agno_agent import enrich_theriaque_indic_impl
+
+    print("[THERIAQUE] run_theriaque_indic_enrichment() CALLED")
+
+    if not theriaque_phpsessid or not theriaque_authchallenge:
+        print("[THERIAQUE] ❌ Cookies manquants.")
+        print("  -> Fournis: --theriaque-phpsessid + --theriaque-authchallenge")
+        return
+
+    result = enrich_theriaque_indic_impl(
+        theriaque_phpsessid=theriaque_phpsessid,
+        theriaque_authchallenge=theriaque_authchallenge,
+        limit_docs=limit,
+    )
+
+    print("\n=== TERMINÉ THÉRIAQUE INDICATIONS (INDIC) ===")
+    print(result)
 
 def main():
     parser = argparse.ArgumentParser(description="MEDIALISE - pipeline scraping/enrichissement")
     parser.add_argument(
         "--mode",
-        choices=["ansm_html", "bdpm_extrait", "cpd", "smr_asmr", "compo", "theriaque", "all"],
+        choices=["ansm_html", "bdpm_extrait", "cpd", "smr_asmr", "compo", "theriaque", "theriaque_c_indic", "theriaque_indic", "all"],
         default="ansm_html",
         help="ansm_html=RCP HTML via Excel, bdpm_extrait=/extrait via CIS_bdpm.csv, cpd=CPD, smr_asmr=SMR+ASMR, compo=COMPO, theriaque=INTER, all=tout",
     )
@@ -267,6 +306,22 @@ def main():
             limit=args.limit,
         )
         return
+    
+    if args.mode == "theriaque_c_indic":
+        run_theriaque_c_indic_enrichment(
+            theriaque_phpsessid=args.theriaque_phpsessid,
+            theriaque_authchallenge=args.theriaque_authchallenge,
+            limit=args.limit,
+        )
+        return
+
+    if args.mode == "theriaque_indic":
+        run_theriaque_indic_enrichment(
+            theriaque_phpsessid=args.theriaque_phpsessid,
+            theriaque_authchallenge=args.theriaque_authchallenge,
+            limit=args.limit,
+        )
+        return
 
     if args.mode == "all":
         run_batch(limit=args.limit, sleep_s=args.sleep)
@@ -277,6 +332,16 @@ def main():
         run_theriaque_enrichment(
             theriaque_phpsessid=args.theriaque_phpsessid,
             theriaque_authchallenge=args.theriaque_authchallenge,
+        )
+        run_theriaque_c_indic_enrichment(
+            theriaque_phpsessid=args.theriaque_phpsessid,
+            theriaque_authchallenge=args.theriaque_authchallenge,
+            limit=args.limit,
+        )
+        run_theriaque_indic_enrichment(
+            theriaque_phpsessid=args.theriaque_phpsessid,
+            theriaque_authchallenge=args.theriaque_authchallenge,
+            limit=args.limit,
         )
         return
 

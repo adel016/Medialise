@@ -12,6 +12,12 @@ from agno.tools import tool
 from scrapers.sources.ansm_html import scrape_html
 from scrapers.sources.bdpm_cpd import enrich_medicines_with_cpd
 from scrapers.import_json_to_mongo import upsert_document, import_all_from_test_outputs
+from scrapers.sources.theriaque_html import (
+    fetch_theriaque_c_indic, parse_theriaque_c_indic,
+    fetch_theriaque_indic, parse_theriaque_indic,
+)
+
+
 
 from scrapers.sources.theriaque_html import (
     fetch_theriaque_interactions,
@@ -149,16 +155,14 @@ def enrich_theriaque_interactions_impl(
             {"_id": doc["_id"]},
             {
                 "$set": {
-                    "theriaque": {
-                        "meta": {
-                            "source": "theriaque",
-                            "cis": str(cis),
-                            "sp_id": str(sp_id),
-                            "matched_by": "cis",
-                            "last_updated_at": int(time.time()),
-                        },
-                        "interactions": interactions,
-                    }
+                    "theriaque.meta": {
+                        "source": "theriaque",
+                        "cis": str(cis),
+                        "sp_id": str(sp_id),
+                        "matched_by": "cis",
+                        "last_updated_at": int(time.time()),
+                    },
+                    "theriaque.interactions": interactions,
                 }
             },
         )
@@ -193,3 +197,162 @@ agno_agent = Agent(
     ],
     markdown=True,
 )
+
+
+def enrich_theriaque_c_indic_impl(
+    theriaque_phpsessid: str | None = None,
+    theriaque_authchallenge: str | None = None,
+    limit_docs: int | None = None
+) -> str:
+    collection = get_collection("medicines")
+
+    if not theriaque_phpsessid or not theriaque_authchallenge:
+        return "[THERIAQUE] Cookies manquants: --theriaque-phpsessid + --theriaque-authchallenge"
+
+    session = _make_theriaque_session(
+        phpsessid=theriaque_phpsessid,
+        authchallenge=theriaque_authchallenge,
+    )
+
+    test = session.get("https://www.theriaque.org/apps/recherche/rch_simple.php", timeout=30)
+    html = test.text or ""
+    ok = ("Bienvenue" in html) and ("action=logout" in html)
+    if not ok:
+        return "[THERIAQUE] AUTH FAILED (cookies invalides/expirés)"
+
+    scanned = matched = updated = 0
+
+    cursor = collection.find(
+        {"bdpm.cis": {"$exists": True, "$ne": None}},
+        {"_id": 1, "bdpm.cis": 1}
+    )
+
+    if limit_docs is not None:
+        cursor = cursor.limit(int(limit_docs))
+
+    for doc in cursor:
+        scanned += 1
+        if scanned % 100 == 0:
+            print(
+                f"[THERIAQUE|C_INDIC] scanned={scanned} matched={matched} updated={updated}",
+                flush=True
+            )
+        cis = (doc.get("bdpm") or {}).get("cis")
+        if not cis:
+            continue
+
+        sp_id = resolve_sp_id_from_cis(str(cis), session)
+        if not sp_id:
+            continue
+        matched += 1
+
+        page = fetch_theriaque_c_indic(str(sp_id), session=session)
+        parsed = parse_theriaque_c_indic(page["html"])
+
+        collection.update_one(
+            {"_id": doc["_id"]},
+            {
+                "$set": {
+                    "theriaque.meta": {
+                        "source": "theriaque",
+                        "cis": str(cis),
+                        "sp_id": str(sp_id),
+                        "matched_by": "cis",
+                        "last_updated_at": int(time.time()),
+                    },
+                    "theriaque.c_indic": {
+                        "sp_id": str(sp_id),
+                        "url": page["url"],
+                        **parsed,
+                    },
+                }
+            }
+        )
+
+        updated += 1
+
+    return (
+        "Enrichissement Thériaque C_INDIC terminé.\n"
+        f"- Docs scannés : {scanned}\n"
+        f"- Docs matchés : {matched}\n"
+        f"- Docs modifiés: {updated}"
+    )
+
+
+
+def enrich_theriaque_indic_impl(
+    theriaque_phpsessid: str | None = None,
+    theriaque_authchallenge: str | None = None,
+    limit_docs: int | None = None
+) -> str:
+    collection = get_collection("medicines")
+
+    if not theriaque_phpsessid or not theriaque_authchallenge:
+        return "[THERIAQUE] Cookies manquants: --theriaque-phpsessid + --theriaque-authchallenge"
+
+    session = _make_theriaque_session(
+        phpsessid=theriaque_phpsessid,
+        authchallenge=theriaque_authchallenge,
+    )
+
+    test = session.get("https://www.theriaque.org/apps/recherche/rch_simple.php", timeout=30)
+    html = test.text or ""
+    ok = ("Bienvenue" in html) and ("action=logout" in html)
+    if not ok:
+        return "[THERIAQUE] AUTH FAILED (cookies invalides/expirés)"
+
+    scanned = matched = updated = 0
+
+    cursor = collection.find(
+        {"bdpm.cis": {"$exists": True, "$ne": None}},
+        {"_id": 1, "bdpm.cis": 1}
+    )
+    if limit_docs is not None:
+        cursor = cursor.limit(int(limit_docs))
+
+    for doc in cursor:
+        scanned += 1
+
+        # suivi toutes les 100 lignes
+        if scanned % 100 == 0:
+            print(f"[THERIAQUE|INDIC] scanned={scanned} matched={matched} updated={updated}", flush=True)
+
+        cis = (doc.get("bdpm") or {}).get("cis")
+        if not cis:
+            continue
+
+        sp_id = resolve_sp_id_from_cis(str(cis), session)
+        if not sp_id:
+            continue
+        matched += 1
+
+        page = fetch_theriaque_indic(str(sp_id), session=session)
+        parsed = parse_theriaque_indic(page["html"])
+
+        collection.update_one(
+            {"_id": doc["_id"]},
+            {
+                "$set": {
+                    "theriaque.meta": {
+                        "source": "theriaque",
+                        "cis": str(cis),
+                        "sp_id": str(sp_id),
+                        "matched_by": "cis",
+                        "last_updated_at": int(time.time()),
+                    },
+                    "theriaque.indic": {
+                        "sp_id": str(sp_id),
+                        "url": page["url"],
+                        **parsed,
+                    },
+                }
+            }
+        )
+        updated += 1
+
+    return (
+        "Enrichissement Thériaque INDIC terminé.\n"
+        f"- Docs scannés : {scanned}\n"
+        f"- Docs matchés : {matched}\n"
+        f"- Docs modifiés: {updated}"
+    )

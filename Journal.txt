@@ -108,3 +108,17 @@ python -m scrapers.run_agno --mode theriaque `
   "theriaque": { "$exists": true }
 }
 ################################################################################
+
+Partie Indication : 
+____________________________________________
+python -m scrapers.run_agno --mode theriaque_indic --theriaque-phpsessid "l00fo0g51g6kajp1lbgc5vd7u6" --theriaque-authchallenge "b831786419aa94e6adc64b54fb67080f" --limit 50
+################################################################################
+{ "theriaque.indic": { "$exists": true } }
+################################################################################
+
+Partie Contre_indication :
+___________________________________
+python -m scrapers.run_agno --mode theriaque_c_indic --theriaque-phpsessid "13j0mjaup9d0phb7nfmklqnbe1" --theriaque-authchallenge "8aa80cfc86bddb4912999752e8b288fe" --limit 50
+################################################################################
+{ "theriaque.c_indic": { "$exists": true } }
+################################################################################
