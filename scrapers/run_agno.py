@@ -11,6 +11,12 @@ from scrapers.sources.pdf_downloader import download_pdf
 from scrapers.sources.bdpm_cpd import enrich_medicines_with_cpd
 from scrapers.sources.bdpm_smr_asmr import enrich_medicines_with_smr_asmr
 from scrapers.sources.bdpm_compo import enrich_medicines_with_compo
+from scrapers.sources.pubchem import (
+    enrich_medicines_with_pubchem,
+    enrich_substances_with_pubchem_full,
+)
+
+
 
 from scrapers.pipeline.source_context import SourceContext, inject_source_context
 
@@ -261,11 +267,55 @@ def run_theriaque_indic_enrichment(*, theriaque_phpsessid: str | None, theriaque
     print("\n=== TERMINÉ THÉRIAQUE INDICATIONS (INDIC) ===")
     print(result)
 
+
+def run_pubchem_enrichment(
+    *,
+    limit: int | None = None,
+    sleep_s: float = 0.2,
+    save_images: bool = False,
+    only_retryable_errors: bool = False,
+):
+    """
+    Wrapper CLI pour l'enrichissement PubChem V3 (substances).
+    """
+
+    stats = enrich_substances_with_pubchem_full(
+        collection_name="substances_v3",
+        limit_docs=limit,
+        sleep_s=sleep_s,
+        synonyms_top_n=200,
+        store_full_record=True,
+        full_sections_collection="pubchem_compound_sections",
+        download_images=save_images,
+        images_out_dir="data/pubchem_images",
+        only_retryable_errors=only_retryable_errors,
+    )
+
+    print("\n=== TERMINÉ PUBCHEM V3 (substances full) ===")
+
+    if not stats:
+        print("❌ ERREUR: enrich_substances_with_pubchem_full() a retourné None.")
+        return
+
+    print(f"Substances scannées : {stats.get('scanned', 0)}")
+    print(f"CID matchés : {stats.get('matched', 0)}")
+    print(f"Substances modifiées : {stats.get('updated', 0)}")
+    print(f"Sans CID : {stats.get('no_cid', 0)}")
+    print(f"Full record stockés : {stats.get('stored_full', 0)}")
+    print(f"Images OK : {stats.get('images_ok', 0)}")
+    print(f"Images échouées : {stats.get('images_fail', 0)}")
+
+    if stats.get("errors"):
+        print("Erreurs (extraits):")
+        for e in stats["errors"]:
+            print(" -", e)
+
+
 def main():
     parser = argparse.ArgumentParser(description="MEDIALISE - pipeline scraping/enrichissement")
     parser.add_argument(
         "--mode",
-        choices=["ansm_html", "bdpm_extrait", "cpd", "smr_asmr", "compo", "theriaque", "theriaque_c_indic", "theriaque_indic", "all"],
+        choices=["ansm_html", "bdpm_extrait", "cpd", "smr_asmr", "compo", "theriaque", "theriaque_c_indic", "theriaque_indic", "pubchem", "all"],
         default="ansm_html",
         help="ansm_html=RCP HTML via Excel, bdpm_extrait=/extrait via CIS_bdpm.csv, cpd=CPD, smr_asmr=SMR+ASMR, compo=COMPO, theriaque=INTER, all=tout",
     )
@@ -275,6 +325,15 @@ def main():
 
     parser.add_argument("--theriaque-phpsessid", type=str, default=None, help="Cookie Thériaque PHPSESSID")
     parser.add_argument("--theriaque-authchallenge", type=str, default=None, help="Cookie Thériaque authchallenge")
+
+    parser.add_argument("--pubchem-save-images", action="store_true", help="Télécharge les PNG 2D PubChem en local")
+    parser.add_argument(
+    "--only-retryable-errors",
+    action="store_true",
+    help="Relancer uniquement les erreurs PubChem retryables (503, ServerBusy)"
+)
+
+
 
     args = parser.parse_args()
     download_pdfs = not args.no_pdf
@@ -322,6 +381,15 @@ def main():
             limit=args.limit,
         )
         return
+    if args.mode == "pubchem":
+        run_pubchem_enrichment(
+            limit=args.limit, 
+            sleep_s=args.sleep, 
+            save_images=args.pubchem_save_images,
+            only_retryable_errors=args.only_retryable_errors,
+        )
+        return
+
 
     if args.mode == "all":
         run_batch(limit=args.limit, sleep_s=args.sleep)
@@ -343,6 +411,11 @@ def main():
             theriaque_authchallenge=args.theriaque_authchallenge,
             limit=args.limit,
         )
+        run_pubchem_enrichment(
+            limit=args.limit, 
+            sleep_s=args.sleep, 
+            save_images=args.pubchem_save_images,
+            )
         return
 
 

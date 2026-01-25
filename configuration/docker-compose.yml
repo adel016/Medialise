@@ -8,6 +8,9 @@ services:
     container_name: medsearch_web
     env_file:
       - ../.env
+    environment:
+      - MONGO_URI=mongodb://mongo:27017
+      - MONGO_DB=medicsearch
     depends_on:
       mongo:
         condition: service_started

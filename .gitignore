@@ -22,3 +22,8 @@ __pycache__/
 
 # Rapport
 Rapport Medialise.docx
+
+
+# PubChem images (générées localement)
+data/pubchem_images/
+data/pubchem_images/**

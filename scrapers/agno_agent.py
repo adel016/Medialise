@@ -18,7 +18,6 @@ from scrapers.sources.theriaque_html import (
 )
 
 
-
 from scrapers.sources.theriaque_html import (
     fetch_theriaque_interactions,
     resolve_sp_id_from_cis,

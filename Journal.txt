@@ -30,8 +30,6 @@ Ensuite lance la commande depuis la raçine du projet medialise :
 py -m scrapers.run_agno
 
 
-
-
 python -m venv .venv
 .\.venv\Scripts\activate
 
@@ -122,3 +120,9 @@ python -m scrapers.run_agno --mode theriaque_c_indic --theriaque-phpsessid "13j0
 ################################################################################
 { "theriaque.c_indic": { "$exists": true } }
 ################################################################################
+
+
+
+SUIVRE LE TUTO WORK pour migrer vers la version 3 
+
+
