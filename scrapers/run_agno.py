@@ -358,7 +358,7 @@ def main():
 
 
     args = parser.parse_args()
-        # =========================
+    # =========================
     # EARLY EXIT: DrugBank only
     # =========================
     if args.drugbank_xml:

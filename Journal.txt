@@ -141,3 +141,33 @@ python -m scrapers.run_agno --drugbank-xml "data/drugbank/full database.xml" --d
 lancée et attendre ensuite tout simplement 
 
 
+Partie OPENFDA :
+
+Partie NEO4J après avoir pull tu rentre l'adresse suivante dans le navigateur http://localhost:17474/browser/
+
+tu rentres les infos tu peux les trouvé dans le temrinal avec une commande IA 
+
+ensuite tu tappe dans la barre en haut ça et tu runne :
+
+CREATE CONSTRAINT medicine_mongo_id IF NOT EXISTS
+FOR (m:Medicine) REQUIRE m.mongo_id IS UNIQUE;
+
+CREATE CONSTRAINT substance_mongo_id IF NOT EXISTS
+FOR (s:Substance) REQUIRE s.mongo_id IS UNIQUE;
+
+CREATE CONSTRAINT substance_label_norm IF NOT EXISTS
+FOR (s:Substance) REQUIRE s.label_normalized IS UNIQUE;
+
+CREATE CONSTRAINT marketproduct_id IF NOT EXISTS
+FOR (p:MarketProduct) REQUIRE p.mp_id IS UNIQUE;
+
+CREATE INDEX mp_country IF NOT EXISTS FOR (p:MarketProduct) ON (p.country);
+CREATE INDEX mp_brand IF NOT EXISTS FOR (p:MarketProduct) ON (p.brand_title);
+CREATE INDEX medicine_inns IF NOT EXISTS FOR (m:Medicine) ON (m.inns);
+
+
+Lancer depuis le venv :
+
+pip install neo4j pymongo python-dotenv
+
+
