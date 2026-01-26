@@ -15,6 +15,11 @@ from scrapers.sources.pubchem import (
     enrich_medicines_with_pubchem,
     enrich_substances_with_pubchem_full,
 )
+from scrapers.sources.drugbank import ingest_drugbank
+from scrapers.sources.openfda_ndc import ingest_openfda_ndc
+from scrapers.utils.mongo import get_collection
+
+
 
 
 
@@ -315,7 +320,7 @@ def main():
     parser = argparse.ArgumentParser(description="MEDIALISE - pipeline scraping/enrichissement")
     parser.add_argument(
         "--mode",
-        choices=["ansm_html", "bdpm_extrait", "cpd", "smr_asmr", "compo", "theriaque", "theriaque_c_indic", "theriaque_indic", "pubchem", "all"],
+        choices=["ansm_html", "bdpm_extrait", "cpd", "smr_asmr", "compo", "theriaque", "theriaque_c_indic", "theriaque_indic", "pubchem", "openfda_ndc", "all"],
         default="ansm_html",
         help="ansm_html=RCP HTML via Excel, bdpm_extrait=/extrait via CIS_bdpm.csv, cpd=CPD, smr_asmr=SMR+ASMR, compo=COMPO, theriaque=INTER, all=tout",
     )
@@ -332,10 +337,51 @@ def main():
     action="store_true",
     help="Relancer uniquement les erreurs PubChem retryables (503, ServerBusy)"
 )
+    parser.add_argument("--drugbank-xml", dest="drugbank_xml", default=None,
+                    help="Chemin vers drugbank_all_full_database.xml.zip")
+    parser.add_argument("--drugbank-limit", dest="drugbank_limit", type=int, default=None,
+                        help="Limite de drugs à ingérer (test rapide)")
+    parser.add_argument("--drugbank-log-every", dest="drugbank_log_every", type=int, default=100,
+                        help="Logs toutes les N entrées")
+    parser.add_argument("--drugbank-no-raw-chunks", dest="drugbank_no_raw_chunks", action="store_true",
+                        help="Désactive stockage des gros blocs en chunks (non recommandé)")
+    parser.add_argument("--drugbank-dry-run", dest="drugbank_dry_run", action="store_true",
+                        help="Parse mais n'écrit rien dans Mongo")
+
+
+    parser.add_argument("--openfda-ndc", action="store_true", help="Ingestion OpenFDA drug/ndc -> medicine_market (US)")
+    parser.add_argument("--openfda-limit", type=int, default=None, help="Limite total records OpenFDA")
+    parser.add_argument("--openfda-since", type=str, default=None, help="Filtre marketing_start_date >= YYYYMMDD (OpenFDA drug/ndc)")
+    parser.add_argument("--openfda-log-every", type=int, default=500, help="Logs toutes les N entrées OpenFDA")
+    parser.add_argument("--openfda-dry-run", action="store_true", help="OpenFDA: parse mais n'écrit rien")
 
 
 
     args = parser.parse_args()
+        # =========================
+    # EARLY EXIT: DrugBank only
+    # =========================
+    if args.drugbank_xml:
+        import os
+
+        mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+        mongo_db = os.getenv("MONGO_DB", "medicsearch")  # ton .env dit medicsearch :contentReference[oaicite:3]{index=3}
+
+        print(f"[DrugBank] ingest path={args.drugbank_xml}")
+        print(f"[DrugBank] mongo_db={mongo_db} limit={args.drugbank_limit}")
+
+        out = ingest_drugbank(
+            xml_or_zip_path=args.drugbank_xml,
+            mongo_uri=mongo_uri,
+            mongo_db=mongo_db,
+            limit=args.drugbank_limit,
+            log_every=args.drugbank_log_every,
+            store_raw_chunks=not args.drugbank_no_raw_chunks,
+            dry_run=args.drugbank_dry_run,
+        )
+        print(f"[DrugBank] DONE: {out}")
+        raise SystemExit(0)
+
     download_pdfs = not args.no_pdf
 
     if args.mode == "ansm_html":
@@ -390,6 +436,18 @@ def main():
         )
         return
 
+    # =========================
+    # MODE: OpenFDA NDC
+    # =========================
+    if args.mode == "openfda_ndc":
+        out = ingest_openfda_ndc(
+            limit=args.openfda_limit if args.openfda_limit is not None else args.limit,
+            since=args.openfda_since,
+            log_every=args.openfda_log_every,
+            dry_run=args.openfda_dry_run,
+        )
+        print(f"[OPENFDA] DONE: {out}")
+        return
 
     if args.mode == "all":
         run_batch(limit=args.limit, sleep_s=args.sleep)

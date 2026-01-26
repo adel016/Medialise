@@ -126,3 +126,18 @@ python -m scrapers.run_agno --mode theriaque_c_indic --theriaque-phpsessid "13j0
 SUIVRE LE TUTO WORK pour migrer vers la version 3 
 
 
+DRUG BANK 
+___________________________________
+
+Avoir le fichier dans le dossier data/drugbank et le dézippe 
+
+python -m scrapers.run_drugbank
+
+OU 
+
+python -m scrapers.run_agno --drugbank-xml "data/drugbank/full database.xml" --drugbank-log-every 200
+
+
+lancée et attendre ensuite tout simplement 
+
+

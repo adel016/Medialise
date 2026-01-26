@@ -27,3 +27,10 @@ Rapport Medialise.docx
 # PubChem images (générées localement)
 data/pubchem_images/
 data/pubchem_images/**
+
+
+# Data (big)
+data/drugbank/
+data/pubchem_images/
+data/pdfs/
+
