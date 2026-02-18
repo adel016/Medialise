@@ -1,0 +1,20 @@
+<footer style="
+  background: var(--color-bg-soft);
+  border-top: 1px solid var(--color-border);
+  margin-top: 64px;
+">
+  <div style="
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 28px 20px;
+    text-align: center;
+  ">
+    <div style="color: var(--color-text-muted); font-size: 0.95rem; line-height: 1.6;">
+      <div>&copy; {{ now.year }} MedicSearch. Tous droits réservés.</div>
+      <div>Ce site est conçu à des fins éducatives uniquement.</div>
+    </div>
+    <div style="margin-top:10px; color: var(--color-primary); font-weight: 700;">
+      IUT-Créteil-Vitry
+    </div>
+  </div>
+</footer>

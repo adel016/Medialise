@@ -1,0 +1,351 @@
+/* Medicine Details - Modern Design with Source Badges */
+
+/* Source Badges */
+.source-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.source-badge:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.source-badge i {
+    font-size: 0.9rem;
+}
+
+/* Source colors */
+.source-badge.ansm {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    color: white;
+}
+
+.source-badge.theriaque {
+    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+    color: white;
+}
+
+.source-badge.pubchem {
+    background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%);
+    color: white;
+}
+
+.source-badge.drugbank {
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+    color: white;
+}
+
+.source-badge.multiple {
+    background: linear-gradient(135deg, #17a2b8 0%, #117a8b 100%);
+    color: white;
+}
+
+/* Data Cards */
+.data-card {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+    border: 1px solid rgba(0,0,0,0.05);
+}
+
+.data-card:hover {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    transform: translateY(-2px);
+}
+
+.data-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.data-card-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.data-card-title i {
+    color: #007bff;
+    font-size: 1.5rem;
+}
+
+.data-card-body {
+    color: #555;
+    line-height: 1.8;
+}
+
+/* Info Grid */
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.info-item {
+    background: #f8f9fa;
+    padding: 16px;
+    border-radius: 12px;
+    border-left: 4px solid #007bff;
+    transition: all 0.3s ease;
+}
+
+.info-item:hover {
+    background: #e9ecef;
+    border-left-color: #0056b3;
+    transform: translateX(4px);
+}
+
+.info-item-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.info-item-value {
+    font-size: 1rem;
+    color: #333;
+    font-weight: 500;
+}
+
+/* Contra-indications & Interactions */
+.warning-card {
+    background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
+    border-left: 5px solid #ffc107;
+}
+
+.warning-card .data-card-title {
+    color: #856404;
+}
+
+.danger-card {
+    background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+    border-left: 5px solid #dc3545;
+}
+
+.danger-card .data-card-title {
+    color: #721c24;
+}
+
+.success-card {
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    border-left: 5px solid #28a745;
+}
+
+.success-card .data-card-title {
+    color: #155724;
+}
+
+/* Chemical Properties */
+.chemical-properties {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+}
+
+.chemical-property {
+    background: white;
+    padding: 12px;
+    border-radius: 8px;
+    border: 2px solid #e9ecef;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.chemical-property:hover {
+    border-color: #9c27b0;
+    box-shadow: 0 4px 12px rgba(156, 39, 176, 0.15);
+}
+
+.chemical-property-label {
+    font-size: 0.75rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.chemical-property-value {
+    font-size: 1.2rem;
+    color: #9c27b0;
+    font-weight: 700;
+}
+
+/* Synonyms List */
+.synonyms-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.synonym-tag {
+    background: #e9ecef;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    color: #495057;
+    transition: all 0.2s ease;
+}
+
+.synonym-tag:hover {
+    background: #dee2e6;
+    transform: scale(1.05);
+}
+
+/* Terrain (Contre-indications) */
+.terrain-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.terrain-item {
+    background: white;
+    padding: 16px;
+    border-radius: 12px;
+    border-left: 4px solid #dc3545;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.terrain-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.terrain-title {
+    font-weight: 700;
+    color: #721c24;
+    font-size: 1rem;
+}
+
+.terrain-level {
+    padding: 4px 12px;
+    background: #dc3545;
+    color: white;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.terrain-details {
+    color: #6c757d;
+    font-size: 0.9rem;
+    margin-top: 8px;
+}
+
+.terrain-details li {
+    margin: 4px 0;
+    padding-left: 8px;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #6c757d;
+}
+
+.empty-state i {
+    font-size: 3rem;
+    color: #dee2e6;
+    margin-bottom: 16px;
+}
+
+.empty-state p {
+    font-size: 1.1rem;
+    color: #6c757d;
+}
+
+/* Tabs for multiple sources */
+.source-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #e9ecef;
+    flex-wrap: wrap;
+}
+
+.source-tab {
+    padding: 12px 24px;
+    background: transparent;
+    border: none;
+    color: #6c757d;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-bottom: 3px solid transparent;
+    font-size: 0.95rem;
+}
+
+.source-tab:hover {
+    color: #007bff;
+    background: #f8f9fa;
+}
+
+.source-tab.active {
+    color: #007bff;
+    border-bottom-color: #007bff;
+}
+
+.source-tab-content {
+    display: none;
+}
+
+.source-tab-content.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .chemical-properties {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .source-tabs {
+        flex-direction: column;
+    }
+    
+    .source-tab {
+        width: 100%;
+        text-align: left;
+    }
+}

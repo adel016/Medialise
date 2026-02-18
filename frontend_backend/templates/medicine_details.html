@@ -1,13 +1,20 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="{{ session.get('language', 'fr') }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ medicine['title'] }} - MedicSearch</title>
+    <title>{{ medicine['title'] }} - Medialise</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/medicine_details.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/medicine_details_modern.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    
+    <!-- Support RTL pour l'arabe -->
+    {% if session.get('language') == 'ar' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/rtl.css') }}">
+    {% endif %}
+    
     <style>
         /* Medicine banner styling */
         .medicine-banner {
@@ -457,15 +464,15 @@
             <div class="container">
                 <h2>{{ medicine['title'] }}</h2>
                 <div class="medicine-meta">
-                    <span class="update-info">Mise à jour: {{ medicine['update_date'] }}</span>
-                    <span class="source-url">Source: <a href="{{ medicine['url'] }}" target="_blank">Base de données publique des médicaments</a></span>
+                    <span class="update-info">{{ _('details.updated') }} {{ medicine['update_date'] }}</span>
+                    <span class="source-url">{{ _('details.source') }} <a href="{{ medicine['url'] }}" target="_blank">{{ _('details.public_database') }}</a></span>
                     
                     <!-- Icône de favoris avec texte et fond blanc -->
                     {% if g.user %}
                     <div class="medicine-actions">
                         <div id="favorite-icon-container" class="favorite-icon-container">
                             <i id="favorite-icon" class="favorite-icon {{ 'fas fa-heart favorited' if is_favorite else 'far fa-heart not-favorited' }}"></i>
-                            <span id="favorite-text" class="favorite-text">{{ "Retirer des favoris" if is_favorite else "Ajouter aux favoris" }}</span>
+                            <span id="favorite-text" class="favorite-text">{{ _('details.remove_favorite') if is_favorite else _('details.add_favorite') }}</span>
                         </div>
                     </div>
                     {% endif %}
@@ -483,22 +490,67 @@
                             <!-- AI Summary -->
                             <li class="nav-section-item">
                                 <a href="#section-ai-summary" class="nav-section-link ai-summary-nav">
-                                    <i class="fas fa-robot"></i> Résumé par IA
+                                    <i class="fas fa-robot"></i> {{ _('details.ai_summary') }}
                                 </a>
                             </li>
                             
                             <!-- General info section -->
                             <li class="nav-section-item">
                                 <a href="#section-general-info" class="nav-section-link">
-                                    <i class="fas fa-info-circle"></i> Informations générales
+                                    <i class="fas fa-info-circle"></i> {{ _('details.general_info') }}
                                 </a>
                             </li>
+                            
+                            <!-- Molecular Structures 2D -->
+                            {% if substance_images and substance_images|length > 0 %}
+                            <li class="nav-section-item">
+                                <a href="#section-molecular-structures" class="nav-section-link molecules-nav">
+                                    <i class="fas fa-atom"></i> {{ _('details.molecular_structures') }}
+                                </a>
+                            </li>
+                            {% endif %}
+                            
+                            <!-- Thériaque sections -->
+                            {% if medicine.theriaque_data %}
+                                {% if medicine.theriaque_data.c_indic %}
+                                <li class="nav-section-item">
+                                    <a href="#section-theriaque-contraindications" class="nav-section-link">
+                                        <i class="fas fa-exclamation-triangle"></i> {{ _('details.contraindications') }}
+                                    </a>
+                                </li>
+                                {% endif %}
+                                {% if medicine.theriaque_data.indic %}
+                                <li class="nav-section-item">
+                                    <a href="#section-theriaque-indications" class="nav-section-link">
+                                        <i class="fas fa-stethoscope"></i> {{ _('details.indications') }}
+                                    </a>
+                                </li>
+                                {% endif %}
+                                {% if medicine.theriaque_data.interactions %}
+                                <li class="nav-section-item">
+                                    <a href="#section-theriaque-interactions" class="nav-section-link">
+                                        <i class="fas fa-exchange-alt"></i> {{ _('details.interactions') }}
+                                    </a>
+                                </li>
+                                {% endif %}
+                            {% endif %}
+                            
+                            <!-- Substances sections -->
+                            {% if medicine.substances_data %}
+                                {% for substance in medicine.substances_data %}
+                                <li class="nav-section-item">
+                                    <a href="#section-substance-{{ loop.index }}" class="nav-section-link">
+                                        <i class="fas fa-atom"></i> {{ substance.label }}
+                                    </a>
+                                </li>
+                                {% endfor %}
+                            {% endif %}
                             
                             <!-- Document sections -->
                             <!-- Pharmacogenomics section link -->
                             <li class="nav-section-item">
                                 <a href="#section-pharmacogenomics" class="nav-section-link">
-                                    <i class="fas fa-dna"></i> Pharmacogénomique
+                                    <i class="fas fa-dna"></i> {{ _('details.pharmacogenomics') }}
                                 </a>
                             </li>
                             <!-- End pharmacogenomics link -->
@@ -515,14 +567,14 @@
                             <!-- Comments section -->
                             <li class="nav-section-item">
                                 <a href="#section-comments" class="nav-section-link comments-nav">
-                                    <i class="fas fa-comments"></i> Commentaires
+                                    <i class="fas fa-comments"></i> {{ _('details.comments') }}
                                 </a>
                             </li>
                             
                             <!-- Technical data section -->
                             <li class="nav-section-item">
                                 <a href="#section-technical-data" class="nav-section-link technical-nav">
-                                    <i class="fas fa-code"></i> Données techniques
+                                    <i class="fas fa-code"></i> {{ _('details.technical_data') }}
                                 </a>
                             </li>
                         </ul>
@@ -534,7 +586,7 @@
                         <span class="section-anchor" id="section-ai-summary"></span>
                         <div class="content-card">
                             <div class="card-header ai-header">
-                                <h3><i class="fas fa-robot" style="margin-right: 10px;"></i>Résumé par IA</h3>
+                                <h3><i class="fas fa-robot" style="margin-right: 10px;"></i>{{ _('details.ai_summary') }}</h3>
                             </div>
                             <div class="card-body">
                                 <div class="summary-section ai-summary" style="padding: 20px; background-color: #f8f9fa; border-radius: 8px; margin-top: 0;">
@@ -544,15 +596,15 @@
                                                 {{ medicine.ai_summary|safe }}
                                             </div>
                                             <div class="ai-disclaimer" style="font-size: 0.8rem; color: #666; margin-top: 15px; border-top: 1px solid #ddd; padding-top: 10px;">
-                                                <i class="fas fa-info-circle"></i> Ce résumé est généré automatiquement et pourrait contenir des imprécisions. Consultez toujours un professionnel de santé.
-                                                <span class="ai-model">Modèle utilisé: mistral-small-latest</span>
+                                                <i class="fas fa-info-circle"></i> {{ _('details.ai_disclaimer') }}
+                                                <span class="ai-model">{{ _('details.ai_model') }} mistral-small-latest</span>
                                             </div>
                                         </div>
                                     {% else %}
                                         <div class="ai-loading" id="ai-loading">
                                             <div class="loading-spinner">
                                                 <div class="spinner"></div>
-                                                <p class="load-status">Génération du résumé en cours...</p>
+                                                <p class="load-status">{{ _('details.generating_summary') }}</p>
                                             </div>
                                         </div>
                                     {% endif %}
@@ -564,7 +616,13 @@
                         <span class="section-anchor" id="section-general-info"></span>
                         <div class="content-card">
                             <div class="card-header">
-                                <h3>Informations générales</h3>
+                                <div class="data-card-header">
+                                    <h3 class="data-card-title">{{ _('details.general_info') }}</h3>
+                                    <span class="source-badge ansm">
+                                        <i class="fas fa-hospital"></i>
+                                        ANSM
+                                    </span>
+                                </div>
                             </div>
                             <div class="card-body">
                                 {% if medicine.get('medicine_details') %}
@@ -598,6 +656,51 @@
                             </div>
                         </div>
 
+                        {# Sections enrichies - Thériaque, PubChem, DrugBank #}
+                        {% include 'medicine_details_enriched_sections.html' %}
+
+                        <!-- Molecular Structure 2D Section -->
+                        {% if substance_images and substance_images|length > 0 %}
+                        <span class="section-anchor" id="section-molecular-structures"></span>
+                        <div class="content-card">
+                            <div class="card-header">
+                                <div class="data-card-header">
+                                    <h3 class="data-card-title">Structures moléculaires 2D</h3>
+                                    <span class="source-badge pubchem">
+                                        <i class="fas fa-flask"></i>
+                                        PubChem
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="molecules-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 25px; margin-top: 15px;">
+                                    {% for img in substance_images %}
+                                    <div class="molecule-card" style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); transition: all 0.3s ease; border: 1px solid #e2e8f0;">
+                                        <div class="molecule-header" style="text-align: center; margin-bottom: 15px;">
+                                            <h4 style="font-size: 1rem; color: #2d3748; font-weight: 600; margin: 0 0 5px 0;">{{ img.label }}</h4>
+                                            <span style="font-size: 0.85rem; color: #718096;">CID: {{ img.cid }}</span>
+                                        </div>
+                                        <div class="molecule-image" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 8px; padding: 15px; display: flex; justify-content: center; align-items: center; min-height: 220px;">
+                                            <img src="{{ img.url }}" 
+                                                 alt="Structure 2D de {{ img.label }}" 
+                                                 style="max-width: 100%; height: auto; border-radius: 4px; cursor: pointer;"
+                                                 onclick="openMoleculeModal('{{ img.url }}', '{{ img.label }}', {{ img.cid }})">
+                                        </div>
+                                        <div class="molecule-footer" style="margin-top: 15px; text-align: center;">
+                                            <a href="https://pubchem.ncbi.nlm.nih.gov/compound/{{ img.cid }}" 
+                                               target="_blank" 
+                                               style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 6px; text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: all 0.3s;">
+                                                <i class="fas fa-external-link-alt"></i>
+                                                Voir sur PubChem
+                                            </a>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
                         <!-- Pharmacogenomics Section -->
                         <span class="section-anchor" id="section-pharmacogenomics"></span>
                         <div class="content-card">
@@ -605,7 +708,90 @@
                                 <h3><i class="fas fa-dna" style="margin-right:10px;"></i>Pharmacogénomique</h3>
                             </div>
                             <div class="card-body">
-                                {% if medicine.get('pharmacogenomics') %}
+                                {% if pharmgkb_data and pharmgkb_data.drug_info %}
+                                    <div class="plain-text">
+                                        <strong><i class="fas fa-info-circle"></i> Source PharmGKB ID:</strong> {{ pharmgkb_data.drug_info.pharmgkb_id }}
+                                    </div>
+                                    <div class="plain-text">
+                                        <strong><i class="fas fa-pills"></i> Nom PharmGKB:</strong> {{ pharmgkb_data.drug_info.name }}
+                                    </div>
+                                    
+                                    {% if pharmgkb_data.drug_info.synonyms and pharmgkb_data.drug_info.synonyms|length > 0 %}
+                                        <div class="plain-text">
+                                            <strong><i class="fas fa-tag"></i> Synonymes:</strong> {{ pharmgkb_data.drug_info.synonyms|join(', ') }}
+                                        </div>
+                                    {% endif %}
+
+                                    {% if pharmgkb_data.genes and pharmgkb_data.genes|length > 0 %}
+                                        <div style="margin-top: 20px;">
+                                            <h4><i class="fas fa-dna"></i> Gènes associés ({{ pharmgkb_data.genes|length }})</h4>
+                                            <div class="table-container">
+                                                <table class="medicine-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Gène</th>
+                                                            <th>Type</th>
+                                                            <th>Association</th>
+                                                            <th>Evidence</th>
+                                                            <th>PMIDs</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for gene in pharmgkb_data.genes %}
+                                                            {% for assoc in gene.associations %}
+                                                                <tr>
+                                                                    <td><strong>{{ gene.symbol }}</strong></td>
+                                                                    <td>
+                                                                        {% if assoc.pk %}
+                                                                            <span class="badge" style="background-color: #4CAF50; color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.85em;">PK</span>
+                                                                        {% endif %}
+                                                                        {% if assoc.pd %}
+                                                                            <span class="badge" style="background-color: #2196F3; color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.85em;">PD</span>
+                                                                        {% endif %}
+                                                                    </td>
+                                                                    <td>
+                                                                        {% if assoc.association == 'associated' %}
+                                                                            <span style="color: #4CAF50;">✓ Associé</span>
+                                                                        {% elif assoc.association == 'ambiguous' %}
+                                                                            <span style="color: #FF9800;">⚠ Ambigu</span>
+                                                                        {% else %}
+                                                                            {{ assoc.association or 'N/A' }}
+                                                                        {% endif %}
+                                                                    </td>
+                                                                    <td>{{ assoc.evidence or 'N/A' }}</td>
+                                                                    <td>
+                                                                        {% if assoc.pmids and assoc.pmids|length > 0 %}
+                                                                            {% for pmid in assoc.pmids[:3] %}
+                                                                                <a href="https://pubmed.ncbi.nlm.nih.gov/{{ pmid }}" target="_blank" style="margin-right: 5px;">{{ pmid }}</a>
+                                                                            {% endfor %}
+                                                                            {% if assoc.pmids|length > 3 %}
+                                                                                <span>... (+{{ assoc.pmids|length - 3 }})</span>
+                                                                            {% endif %}
+                                                                        {% else %}
+                                                                            -
+                                                                        {% endif %}
+                                                                    </td>
+                                                                </tr>
+                                                            {% endfor %}
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                        
+                                        <div style="margin-top: 15px; padding: 10px; background-color: #f5f5f5; border-radius: 5px;">
+                                            <p style="margin: 0; font-size: 0.9em; color: #666;">
+                                                <strong><i class="fas fa-info-circle"></i> Légende:</strong><br>
+                                                <span style="color: #4CAF50;">PK</span> = Pharmacocinétique (comment le corps traite le médicament)<br>
+                                                <span style="color: #2196F3;">PD</span> = Pharmacodynamique (comment le médicament affecte le corps)
+                                            </p>
+                                        </div>
+                                    {% else %}
+                                        <div class="plain-text" style="color: #666; font-style: italic;">
+                                            <i class="fas fa-info-circle"></i> Aucune relation gène-médicament trouvée dans PharmGKB
+                                        </div>
+                                    {% endif %}
+                                {% elif medicine.get('pharmacogenomics') %}
                                     {% set pg = medicine['pharmacogenomics'] %}
                                     <div class="plain-text"><strong>Source PharmGKB ID:</strong> {{ pg.get('pharmgkb_id','N/A') }}</div>
                                     {% if pg.get('vip_genes') and pg.vip_genes|length > 0 %}
@@ -669,13 +855,283 @@
                             </div>
                         </div>
                         
+                        <!-- DrugBank Chunks Section (CRUCIAL pour pharmaciens!) -->
+                        {% if drugbank_chunks %}
+                            <!-- Interactions médicamenteuses DrugBank -->
+                            {% if drugbank_chunks.interactions and drugbank_chunks.interactions|length > 0 %}
+                                <span class="section-anchor" id="section-drugbank-interactions"></span>
+                                <div class="content-card">
+                                    <div class="card-header">
+                                        <div class="data-card-header">
+                                            <h3 class="data-card-title">
+                                                <i class="fas fa-exchange-alt" style="margin-right:10px; color: #ef4444;"></i>
+                                                Interactions médicamenteuses
+                                            </h3>
+                                            <span class="source-badge" style="background-color: #FF9800; color: white;">
+                                                <i class="fas fa-database"></i>
+                                                DrugBank
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+                                            <p style="margin: 0; color: #856404;">
+                                                <i class="fas fa-exclamation-triangle" style="margin-right: 8px;"></i>
+                                                <strong>⚠️ Attention Pharmacien:</strong> {{ drugbank_chunks.interactions|length }} interactions médicamenteuses identifiées. Vérifier avant toute co-prescription.
+                                            </p>
+                                        </div>
+                                        
+                                        <div class="table-container">
+                                            <table class="medicine-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th style="width: 25%;">Médicament interagissant</th>
+                                                        <th style="width: 15%;">DrugBank ID</th>
+                                                        <th style="width: 60%;">Description de l'interaction</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for interaction in drugbank_chunks.interactions[:20] %}
+                                                        <tr>
+                                                            <td><strong>{{ interaction.name }}</strong></td>
+                                                            <td><code>{{ interaction['drugbank-id'] }}</code></td>
+                                                            <td>{{ interaction.description }}</td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        
+                                        {% if drugbank_chunks.interactions|length > 20 %}
+                                            <div style="margin-top: 15px; padding: 10px; background-color: #f5f5f5; border-radius: 5px; text-align: center;">
+                                                <p style="margin: 0; font-size: 0.9em; color: #666;">
+                                                    <i class="fas fa-info-circle"></i>
+                                                    {{ drugbank_chunks.interactions|length - 20 }} interactions supplémentaires non affichées (total: {{ drugbank_chunks.interactions|length }})
+                                                </p>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endif %}
+
+                            <!-- Métabolisme enzymatique (CYP450) - CRUCIAL! -->
+                            {% if drugbank_chunks.enzymes and drugbank_chunks.enzymes|length > 0 %}
+                                <span class="section-anchor" id="section-drugbank-enzymes"></span>
+                                <div class="content-card">
+                                    <div class="card-header">
+                                        <div class="data-card-header">
+                                            <h3 class="data-card-title">
+                                                <i class="fas fa-flask" style="margin-right:10px; color: #8b5cf6;"></i>
+                                                Métabolisme enzymatique (CYP450)
+                                            </h3>
+                                            <span class="source-badge" style="background-color: #FF9800; color: white;">
+                                                <i class="fas fa-database"></i>
+                                                DrugBank
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <div style="background-color: #e0f2fe; border-left: 4px solid #0284c7; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+                                            <p style="margin: 0; color: #075985;">
+                                                <i class="fas fa-info-circle" style="margin-right: 8px;"></i>
+                                                <strong>📌 Info Pharmacien:</strong> {{ drugbank_chunks.enzymes|length }} enzyme(s) impliquée(s) dans le métabolisme. Risque d'interactions via inhibition/induction enzymatique.
+                                            </p>
+                                        </div>
+                                        
+                                        <div class="table-container">
+                                            <table class="medicine-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Enzyme</th>
+                                                        <th>ID</th>
+                                                        <th>Organisme</th>
+                                                        <th>Action connue</th>
+                                                        <th>Force d'inhibition</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for enzyme in drugbank_chunks.enzymes %}
+                                                        <tr>
+                                                            <td><strong>{{ enzyme.name }}</strong></td>
+                                                            <td><code>{{ enzyme.id }}</code></td>
+                                                            <td>{{ enzyme.organism or 'N/A' }}</td>
+                                                            <td>
+                                                                {% if enzyme['known-action'] == 'yes' %}
+                                                                    <span style="color: #10b981;">✓ Oui</span>
+                                                                {% else %}
+                                                                    <span style="color: #ef4444;">✗ Non</span>
+                                                                {% endif %}
+                                                            </td>
+                                                            <td>{{ enzyme.get('inhibition-strength', 'N/A') }}</td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+
+                            <!-- Cibles thérapeutiques (mécanisme d'action) -->
+                            {% if drugbank_chunks.targets and drugbank_chunks.targets|length > 0 %}
+                                <span class="section-anchor" id="section-drugbank-targets"></span>
+                                <div class="content-card">
+                                    <div class="card-header">
+                                        <div class="data-card-header">
+                                            <h3 class="data-card-title">
+                                                <i class="fas fa-crosshairs" style="margin-right:10px; color: #10b981;"></i>
+                                                Cibles thérapeutiques
+                                            </h3>
+                                            <span class="source-badge" style="background-color: #FF9800; color: white;">
+                                                <i class="fas fa-database"></i>
+                                                DrugBank
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="plain-text" style="background-color: #f0fdf4; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                                            <p style="margin: 0; color: #166534;">
+                                                <i class="fas fa-bullseye" style="margin-right: 8px;"></i>
+                                                {{ drugbank_chunks.targets|length }} cible(s) pharmacologique(s) identifiée(s). Ces protéines sont directement affectées par le médicament.
+                                            </p>
+                                        </div>
+                                        
+                                        <div class="table-container">
+                                            <table class="medicine-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Cible</th>
+                                                        <th>ID</th>
+                                                        <th>Organisme</th>
+                                                        <th>Action connue</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for target in drugbank_chunks.targets %}
+                                                        <tr>
+                                                            <td><strong>{{ target.name }}</strong></td>
+                                                            <td><code>{{ target.id }}</code></td>
+                                                            <td>{{ target.organism or 'N/A' }}</td>
+                                                            <td>
+                                                                {% if target['known-action'] == 'yes' %}
+                                                                    <span style="color: #10b981;">✓ Oui</span>
+                                                                {% else %}
+                                                                    <span style="color: #ef4444;">✗ Non</span>
+                                                                {% endif %}
+                                                            </td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+
+                            <!-- Voies métaboliques -->
+                            {% if drugbank_chunks.pathways and drugbank_chunks.pathways|length > 0 %}
+                                <span class="section-anchor" id="section-drugbank-pathways"></span>
+                                <div class="content-card">
+                                    <div class="card-header">
+                                        <div class="data-card-header">
+                                            <h3 class="data-card-title">
+                                                <i class="fas fa-route" style="margin-right:10px; color: #3b82f6;"></i>
+                                                Voies métaboliques
+                                            </h3>
+                                            <span class="source-badge" style="background-color: #FF9800; color: white;">
+                                                <i class="fas fa-database"></i>
+                                                DrugBank
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="table-container">
+                                            <table class="medicine-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Voie métabolique</th>
+                                                        <th>SMPDB ID</th>
+                                                        <th>Catégorie</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for pathway in drugbank_chunks.pathways %}
+                                                        <tr>
+                                                            <td><strong>{{ pathway.name }}</strong></td>
+                                                            <td><code>{{ pathway['smpdb-id'] }}</code></td>
+                                                            <td>
+                                                                {% if pathway.category == 'drug_action' %}
+                                                                    <span class="badge" style="background-color: #3b82f6; color: white; padding: 3px 8px; border-radius: 12px;">Action</span>
+                                                                {% elif pathway.category == 'drug_metabolism' %}
+                                                                    <span class="badge" style="background-color: #8b5cf6; color: white; padding: 3px 8px; border-radius: 12px;">Métabolisme</span>
+                                                                {% else %}
+                                                                    {{ pathway.category }}
+                                                                {% endif %}
+                                                            </td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+
+                            <!-- Transporteurs membranaires -->
+                            {% if drugbank_chunks.transporters and drugbank_chunks.transporters|length > 0 %}
+                                <span class="section-anchor" id="section-drugbank-transporters"></span>
+                                <div class="content-card">
+                                    <div class="card-header">
+                                        <div class="data-card-header">
+                                            <h3 class="data-card-title">
+                                                <i class="fas fa-truck" style="margin-right:10px; color: #f59e0b;"></i>
+                                                Transporteurs membranaires
+                                            </h3>
+                                            <span class="source-badge" style="background-color: #FF9800; color: white;">
+                                                <i class="fas fa-database"></i>
+                                                DrugBank
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="table-container">
+                                            <table class="medicine-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Transporteur</th>
+                                                        <th>ID</th>
+                                                        <th>Organisme</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for transporter in drugbank_chunks.transporters %}
+                                                        <tr>
+                                                            <td><strong>{{ transporter.name }}</strong></td>
+                                                            <td><code>{{ transporter.id }}</code></td>
+                                                            <td>{{ transporter.organism or 'N/A' }}</td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                        
                         <!-- Document Sections -->
                         {% if medicine.get('sections') %}
                             {% for section in medicine['sections'] %}
                                 <span class="section-anchor" id="section-{{ loop.index }}"></span>
                                 <div class="content-card">
                                     <div class="card-header">
-                                        <h3>{{ section['title'] }}</h3>
+                                        <div class="data-card-header">
+                                            <h3 class="data-card-title">{{ section['title'] }}</h3>
+                                            <span class="source-badge ansm">
+                                                <i class="fas fa-hospital"></i>
+                                                RCP ANSM
+                                            </span>
+                                        </div>
                                     </div>
                                     
                                     <div class="card-body">
@@ -1246,6 +1702,85 @@
                 });
             });
         });
+
+        // Fonctions pour le modal de molécules
+        function openMoleculeModal(imageUrl, label, cid) {
+            const modal = document.getElementById('moleculeModal');
+            const modalImg = document.getElementById('modalMoleculeImage');
+            const modalName = document.getElementById('modalMoleculeName');
+            const modalCID = document.getElementById('modalMoleculeCID');
+            const modalLink = document.getElementById('modalPubchemLink');
+            
+            modal.style.display = 'block';
+            modalImg.src = imageUrl;
+            modalName.textContent = label;
+            modalCID.textContent = 'CID: ' + cid;
+            modalLink.href = 'https://pubchem.ncbi.nlm.nih.gov/compound/' + cid;
+            
+            // Animation d'entrée
+            modalImg.style.opacity = '0';
+            setTimeout(() => {
+                modalImg.style.opacity = '1';
+            }, 10);
+        }
+        
+        function closeMoleculeModal() {
+            const modal = document.getElementById('moleculeModal');
+            const modalImg = document.getElementById('modalMoleculeImage');
+            
+            modalImg.style.opacity = '0';
+            setTimeout(() => {
+                modal.style.display = 'none';
+            }, 300);
+        }
+        
+        // Fermer le modal en cliquant en dehors de l'image
+        window.onclick = function(event) {
+            const modal = document.getElementById('moleculeModal');
+            if (event.target == modal) {
+                closeMoleculeModal();
+            }
+        }
+        
+        // Fermer le modal avec la touche Escape
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeMoleculeModal();
+            }
+        });
+        
+        // Animation au survol des cartes de molécules
+        document.addEventListener('DOMContentLoaded', function() {
+            const moleculeCards = document.querySelectorAll('.molecule-card');
+            moleculeCards.forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-5px)';
+                    this.style.boxShadow = '0 8px 20px rgba(102, 126, 234, 0.2)';
+                });
+                card.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0)';
+                    this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
+                });
+            });
+        });
     </script>
+
+    <!-- Modal pour agrandir les images de molécules -->
+    <div id="moleculeModal" style="display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); overflow: auto;">
+        <span onclick="closeMoleculeModal()" style="position: absolute; top: 20px; right: 40px; color: #fff; font-size: 40px; font-weight: bold; cursor: pointer; transition: color 0.3s; z-index: 10001;">&times;</span>
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 40px;">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h2 id="modalMoleculeName" style="color: white; font-size: 1.8rem; margin-bottom: 10px;"></h2>
+                <span id="modalMoleculeCID" style="color: #aaa; font-size: 1rem;"></span>
+            </div>
+            <img id="modalMoleculeImage" style="max-width: 90%; max-height: 80vh; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); transition: opacity 0.3s; opacity: 0;">
+            <div style="margin-top: 20px;">
+                <a id="modalPubchemLink" href="" target="_blank" style="display: inline-flex; align-items: center; gap: 10px; padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; text-decoration: none; font-size: 1rem; font-weight: 600; transition: all 0.3s;">
+                    <i class="fas fa-external-link-alt"></i>
+                    Voir sur PubChem
+                </a>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

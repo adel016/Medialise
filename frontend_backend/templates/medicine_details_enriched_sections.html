@@ -1,0 +1,255 @@
+{# Sections supplémentaires pour medicine_details.html - À insérer après la section Informations générales #}
+
+{# Section Thériaque - Contre-indications #}
+{% if medicine.theriaque_data and medicine.theriaque_data.c_indic %}
+<span class="section-anchor" id="section-theriaque-contraindications"></span>
+<div class="content-card danger-card">
+    <div class="card-header" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);">
+        <div class="data-card-header">
+            <h3 class="data-card-title">
+                <i class="fas fa-exclamation-triangle"></i>
+                Contre-indications
+            </h3>
+            <span class="source-badge theriaque">
+                <i class="fas fa-capsules"></i>
+                Thériaque
+            </span>
+        </div>
+    </div>
+    <div class="card-body">
+        {% set c_indic = medicine.theriaque_data.c_indic %}
+        {% if c_indic.terrains %}
+            <div class="terrain-list">
+                {% for terrain in c_indic.terrains %}
+                <div class="terrain-item">
+                    <div class="terrain-item-header">
+                        <span class="terrain-title">{{ terrain.intitule }}</span>
+                        {% if terrain.niveau %}
+                        <span class="terrain-level">{{ terrain.niveau[0] }}</span>
+                        {% endif %}
+                    </div>
+                    {% if terrain.details %}
+                    <ul class="terrain-details">
+                        {% for detail in terrain.details %}
+                        <li>{{ detail }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                    {% if terrain.cim10 %}
+                    <div style="margin-top: 8px; font-size: 0.8rem; color: #6c757d;">
+                        <strong>CIM-10:</strong> {{ terrain.cim10|join(', ') }}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-check-circle"></i>
+                <p>Aucune contre-indication absolue connue</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{# Section Thériaque - Indications #}
+{% if medicine.theriaque_data and medicine.theriaque_data.indic %}
+<span class="section-anchor" id="section-theriaque-indications"></span>
+<div class="content-card success-card">
+    <div class="card-header" style="background: linear-gradient(135deg, #28a745 0%, #218838 100%);">
+        <div class="data-card-header">
+            <h3 class="data-card-title">
+                <i class="fas fa-stethoscope"></i>
+                Indications thérapeutiques
+            </h3>
+            <span class="source-badge theriaque">
+                <i class="fas fa-capsules"></i>
+                Thériaque
+            </span>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="plain-text">{{ medicine.theriaque_data.indic.text }}</div>
+    </div>
+</div>
+{% endif %}
+
+{# Section Thériaque - Interactions #}
+{% if medicine.theriaque_data and medicine.theriaque_data.interactions %}
+<span class="section-anchor" id="section-theriaque-interactions"></span>
+<div class="content-card warning-card">
+    <div class="card-header" style="background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);">
+        <div class="data-card-header">
+            <h3 class="data-card-title">
+                <i class="fas fa-exchange-alt"></i>
+                Interactions médicamenteuses
+            </h3>
+            <span class="source-badge theriaque">
+                <i class="fas fa-capsules"></i>
+                Thériaque
+            </span>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="plain-text">{{ medicine.theriaque_data.interactions.text }}</div>
+        {% if medicine.theriaque_data.interactions.ref_officielle %}
+        <div style="margin-top: 16px; padding: 12px; background: rgba(255,255,255,0.5); border-radius: 8px; font-size: 0.9rem;">
+            <strong>Référence:</strong> {{ medicine.theriaque_data.interactions.ref_officielle }}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{# Section Substances - PubChem & DrugBank #}
+{% if medicine.substances_data %}
+{% for substance in medicine.substances_data %}
+<span class="section-anchor" id="section-substance-{{ loop.index }}"></span>
+<div class="content-card">
+    <div class="card-header">
+        <div class="data-card-header">
+            <h3 class="data-card-title">
+                <i class="fas fa-atom"></i>
+                Substance active: {{ substance.label }}
+            </h3>
+            <div style="display: flex; gap: 8px;">
+                {% if substance.pubchem %}
+                <span class="source-badge pubchem">
+                    <i class="fas fa-flask"></i>
+                    PubChem
+                </span>
+                {% endif %}
+                {% if substance.drugbank %}
+                <span class="source-badge drugbank">
+                    <i class="fas fa-pills"></i>
+                    DrugBank
+                </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        {# PubChem Data #}
+        {% if substance.pubchem %}
+        <div class="data-card" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); margin-bottom: 20px;">
+            <div class="data-card-header">
+                <h4 style="color: #9c27b0; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-flask"></i>
+                    Propriétés chimiques (PubChem)
+                </h4>
+                {% if substance.pubchem.cid %}
+                <a href="https://pubchem.ncbi.nlm.nih.gov/compound/{{ substance.pubchem.cid }}" target="_blank" class="btn btn-sm" style="background: #9c27b0; color: white; padding: 6px 12px; border-radius: 20px; text-decoration: none; font-size: 0.85rem;">
+                    <i class="fas fa-external-link-alt"></i> Voir sur PubChem
+                </a>
+                {% endif %}
+            </div>
+            <div class="data-card-body">
+                <div class="chemical-properties">
+                    {% if substance.pubchem.molecular_formula %}
+                    <div class="chemical-property">
+                        <div class="chemical-property-label">Formule</div>
+                        <div class="chemical-property-value">{{ substance.pubchem.molecular_formula }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if substance.pubchem.molecular_weight %}
+                    <div class="chemical-property">
+                        <div class="chemical-property-label">Poids (g/mol)</div>
+                        <div class="chemical-property-value">{{ substance.pubchem.molecular_weight }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if substance.pubchem.cid %}
+                    <div class="chemical-property">
+                        <div class="chemical-property-label">PubChem CID</div>
+                        <div class="chemical-property-value">{{ substance.pubchem.cid }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                {% if substance.pubchem.canonical_smiles %}
+                <div style="margin-top: 20px;">
+                    <div class="info-item-label" style="margin-bottom: 8px;">
+                        <i class="fas fa-project-diagram"></i>
+                        SMILES Canonique
+                    </div>
+                    <code style="background: #fff; padding: 12px; border-radius: 8px; display: block; overflow-x: auto; font-size: 0.85rem; border: 1px solid #dee2e6;">{{ substance.pubchem.canonical_smiles }}</code>
+                </div>
+                {% endif %}
+                
+                {% if substance.pubchem.synonyms_top %}
+                <div style="margin-top: 20px;">
+                    <div class="info-item-label" style="margin-bottom: 12px;">
+                        <i class="fas fa-tags"></i>
+                        Synonymes principaux
+                    </div>
+                    <div class="synonyms-list">
+                        {% for synonym in substance.pubchem.synonyms_top %}
+                        <span class="synonym-tag">{{ synonym }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        
+        {# DrugBank Data #}
+        {% if substance.drugbank %}
+        <div class="data-card" style="background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);">
+            <div class="data-card-header">
+                <h4 style="color: #ff9800; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-pills"></i>
+                    Informations pharmacologiques (DrugBank)
+                </h4>
+                {% if substance.drugbank.drugbank_id %}
+                <a href="https://go.drugbank.com/drugs/{{ substance.drugbank.drugbank_id }}" target="_blank" class="btn btn-sm" style="background: #ff9800; color: white; padding: 6px 12px; border-radius: 20px; text-decoration: none; font-size: 0.85rem;">
+                    <i class="fas fa-external-link-alt"></i> Voir sur DrugBank
+                </a>
+                {% endif %}
+            </div>
+            <div class="data-card-body">
+                <div class="info-grid">
+                    {% if substance.drugbank.drugbank_id %}
+                    <div class="info-item" style="border-left-color: #ff9800;">
+                        <div class="info-item-label">DrugBank ID</div>
+                        <div class="info-item-value">{{ substance.drugbank.drugbank_id }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if substance.drugbank.cas %}
+                    <div class="info-item" style="border-left-color: #ff9800;">
+                        <div class="info-item-label">CAS Number</div>
+                        <div class="info-item-value">{{ substance.drugbank.cas }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if substance.drugbank.unii %}
+                    <div class="info-item" style="border-left-color: #ff9800;">
+                        <div class="info-item-label">UNII</div>
+                        <div class="info-item-value">{{ substance.drugbank.unii }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                {% if substance.drugbank.atc_codes %}
+                <div style="margin-top: 20px;">
+                    <div class="info-item-label" style="margin-bottom: 12px;">
+                        <i class="fas fa-sitemap"></i>
+                        Codes ATC
+                    </div>
+                    <div class="synonyms-list">
+                        {% for code in substance.drugbank.atc_codes %}
+                        <span class="synonym-tag" style="background: #ff9800; color: white;">{{ code }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+{% endif %}

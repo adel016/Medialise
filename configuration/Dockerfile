@@ -17,6 +17,13 @@ COPY ../frontend_backend/ .
 # Copier aussi le dossier scrapers (à la racine du projet Medialise)
 COPY ../scrapers/ ./scrapers/
 
+# Compiler les traductions Flask-Babel
+RUN if [ -d "translations" ]; then \
+    pybabel compile -d translations -l fr && \
+    pybabel compile -d translations -l en && \
+    pybabel compile -d translations -l ar; \
+    fi
+
 ENV PYTHONUNBUFFERED=1
 EXPOSE 5000
 

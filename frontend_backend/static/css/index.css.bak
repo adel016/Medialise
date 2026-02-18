@@ -1,0 +1,397 @@
+/* =========================================
+   MEDICSEARCH - INDEX (narratif / scroll)
+   Dépend de variables.css :
+   --color-primary, --color-primary-hover
+   --color-bg, --color-bg-soft
+   --color-text, --color-text-muted
+   --color-border
+========================================= */
+
+:root {
+  --radius-xl: 22px;
+  --radius-lg: 18px;
+  --radius-md: 14px;
+
+  --shadow-soft: 0 12px 30px rgba(0, 0, 0, 0.08);
+  --shadow-card: 0 18px 45px rgba(0, 0, 0, 0.10);
+  --shadow-hover: 0 22px 55px rgba(0, 0, 0, 0.14);
+
+  --max-w: 1080px;
+}
+
+/* reset léger */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+main { display: block; }
+
+/* container central */
+.section-inner {
+  max-width: var(--max-w);
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* sections = “écran” + respiration */
+.section {
+  min-height: 100vh;           /* 1 section = 1 écran */
+  padding: 120px 0;            /* plus d’air */
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;         /* centrage vertical */
+}
+
+
+@media (max-width: 900px) {
+  .section { padding: 56px 0; }
+}
+
+/* variantes de fond */
+.light-section {
+  background: var(--color-bg-soft);
+}
+
+.highlight-section {
+  background:
+    radial-gradient(900px 420px at 30% -10%, rgba(37, 99, 235, 0.16), transparent 55%),
+    radial-gradient(800px 340px at 100% 10%, rgba(20, 160, 175, 0.12), transparent 55%),
+    var(--color-bg);
+}
+
+/* typographie sections */
+.section h2 {
+  margin: 0 0 14px 0;
+  font-size: 1.85rem;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+
+.section-text {
+  margin: 0 0 22px 0;
+  color: var(--color-text-muted);
+  line-height: 1.75;
+  font-weight: 600;
+  max-width: 850px;
+}
+
+/* =========================================
+   HERO
+========================================= */
+.hero-section {
+  background:
+    radial-gradient(1100px 520px at 20% -20%, rgba(37, 99, 235, 0.20), transparent 60%),
+    radial-gradient(900px 380px at 95% 0%, rgba(20, 160, 175, 0.12), transparent 60%),
+    linear-gradient(180deg, var(--color-bg) 0%, var(--color-bg-soft) 100%);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.hero-section .section-inner {
+  text-align: center;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.70);
+  color: var(--color-text);
+  font-weight: 800;
+  font-size: 0.92rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.badge::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.hero-section h1 {
+  margin: 26px 0 22px 0;
+  font-size: 3.4rem;
+  line-height: 1.08;
+  max-width: 1000px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+
+@media (max-width: 900px) {
+  .hero-section h1 {
+    font-size: 2.4rem;
+  }
+}
+
+.accent {
+  color: var(--color-primary);
+}
+
+.hero-text {
+  margin: 0 auto 42px auto;
+  max-width: 920px;
+  font-size: 1.15rem;
+  line-height: 1.8;
+}
+
+
+.hero-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.hero-footnote {
+  margin-top: 10px;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+/* =========================================
+   BUTTONS
+========================================= */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 46px;
+  padding: 0 18px;
+  border-radius: 999px;
+  text-decoration: none;
+  font-weight: 900;
+  border: 1px solid transparent;
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease, border-color .12s ease;
+  user-select: none;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card);
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-hover);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+.btn-ghost:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+/* =========================================
+   PIPELINE (V3)
+========================================= */
+.pipeline {
+  margin-top: 48px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  gap: 14px;
+  align-items: stretch;
+}
+
+@media (max-width: 980px) {
+  .pipeline {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pipeline-step {
+  border: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.70);
+  border-radius: var(--radius-lg);
+  padding: 28px 26px;
+  box-shadow: var(--shadow-soft);
+  font-size: 1.05rem;
+}
+
+.light-section .pipeline-step {
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.pipeline-step h3 {
+  margin: 0 0 8px 0;
+  color: var(--color-text);
+  font-weight: 950;
+  font-size: 1.1rem;
+}
+
+.pipeline-step p {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.65;
+  font-weight: 600;
+}
+
+.pipeline-arrow {
+  display: grid;
+  place-items: center;
+  color: var(--color-primary);
+  font-weight: 950;
+  font-size: 1.4rem;
+}
+
+@media (max-width: 980px) {
+  .pipeline-arrow { display: none; }
+}
+
+/* =========================================
+   FEATURES GRID (3 cartes)
+========================================= */
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 42px;
+}
+
+@media (max-width: 980px) {
+  .features-grid { grid-template-columns: 1fr; }
+}
+
+.feature {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-soft);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  box-shadow: var(--shadow-soft);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+
+.feature:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+
+.feature h3 {
+  margin: 0 0 8px 0;
+  color: var(--color-text);
+  font-weight: 950;
+  font-size: 1.1rem;
+}
+
+.feature p {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.65;
+  font-weight: 600;
+}
+
+/* =========================================
+   BULLET LIST (Traçabilité / évolutions)
+========================================= */
+.bullet-list {
+  margin: 18px 0 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+  max-width: 900px;
+}
+
+.bullet-list li {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.70);
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.bullet-list li::before {
+  content: "✓";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--color-primary);
+  font-weight: 950;
+  flex: 0 0 22px;
+  margin-top: 1px;
+}
+
+.light-section .bullet-list li {
+  background: rgba(255, 255, 255, 0.78);
+}
+
+/* =========================================
+   STATS GRID (chiffres clés)
+========================================= */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-top: 18px;
+}
+
+@media (max-width: 980px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 520px) {
+  .stats-grid { grid-template-columns: 1fr; }
+}
+
+.stat-card {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-soft);
+  border-radius: var(--radius-lg);
+  padding: 36px 24px;
+  text-align: center;
+  box-shadow: var(--shadow-soft);
+}
+
+.stat-number {
+  font-size: 2rem;
+  font-weight: 950;
+  color: var(--color-primary);
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+.stat-label {
+  margin-top: 8px;
+  color: var(--color-text);
+  font-weight: 900;
+}
+
+/* =========================================
+   Small polish
+========================================= */
+.section:last-of-type {
+  border-bottom: none;
+}
+
+/* améliore l’ancrage visuel sous header sticky */
+.section:first-of-type {
+  padding-top: 60px;
+}
+
+/* option : un peu de respiration sous le main */
+main {
+  background: var(--color-bg);
+}

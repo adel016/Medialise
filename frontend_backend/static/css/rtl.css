@@ -1,0 +1,62 @@
+/* =========================================
+   SUPPORT RTL (Right-to-Left) pour l'arabe
+   À inclure dans vos templates quand la langue est AR
+========================================= */
+
+/* Détection automatique de la direction */
+html[lang="ar"] {
+  direction: rtl;
+}
+
+/* Ajustements pour les formulaires en arabe */
+html[lang="ar"] .search-input,
+html[lang="ar"] input,
+html[lang="ar"] textarea {
+  text-align: right;
+  direction: rtl;
+}
+
+/* Menu de langue inversé */
+html[lang="ar"] .language-menu {
+  right: auto;
+  left: 0;
+}
+
+/* Header inversé */
+html[lang="ar"] .header-container {
+  flex-direction: row-reverse;
+}
+
+html[lang="ar"] .header-actions {
+  flex-direction: row-reverse;
+}
+
+/* Icônes inversées */
+html[lang="ar"] .logo-icon,
+html[lang="ar"] svg {
+  transform: scaleX(-1);
+}
+
+/* Texte aligné à droite */
+html[lang="ar"] p,
+html[lang="ar"] li,
+html[lang="ar"] span {
+  text-align: right;
+}
+
+/* Cards et conteneurs */
+html[lang="ar"] .medicine-card,
+html[lang="ar"] .result-item {
+  text-align: right;
+}
+
+/* Padding et margin inversés */
+html[lang="ar"] .ml-2 { margin-right: 0.5rem; margin-left: 0; }
+html[lang="ar"] .mr-2 { margin-left: 0.5rem; margin-right: 0; }
+html[lang="ar"] .pl-2 { padding-right: 0.5rem; padding-left: 0; }
+html[lang="ar"] .pr-2 { padding-left: 0.5rem; padding-right: 0; }
+
+/* Animations inversées */
+html[lang="ar"] .language-menu-item:hover {
+  transform: translateX(-4px);
+}

@@ -3,10 +3,481 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MEDICSEARCH • Inscription</title>
+    <title>Inscription - Medialise</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <style>
+        /* =========================================
+           MODERN AUTH DESIGN SYSTEM
+        ========================================= */
+        :root {
+            --space-xs: 0.5rem;
+            --space-sm: 1rem;
+            --space-md: 1.5rem;
+            --space-lg: 2rem;
+            --space-xl: 3rem;
+            --space-2xl: 4rem;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --radius-full: 999px;
+            --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.03);
+            --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+            --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.10), 0 4px 8px rgba(0, 0, 0, 0.06);
+            --shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.12), 0 6px 12px rgba(0, 0, 0, 0.08);
+            --shadow-2xl: 0 20px 40px rgba(0, 0, 0, 0.14), 0 10px 20px rgba(0, 0, 0, 0.10);
+            --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* =========================================
+           AUTH SECTION
+        ========================================= */
+        .auth-section {
+            min-height: calc(100vh - 140px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-2xl) var(--space-md);
+            background:
+                radial-gradient(ellipse 1000px 500px at 50% 0%, rgba(37, 99, 235, 0.08), transparent 70%),
+                radial-gradient(ellipse 800px 400px at 90% 100%, rgba(20, 160, 175, 0.06), transparent 70%),
+                linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .auth-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%232563eb' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
+        .auth-container {
+            max-width: 720px;
+            width: 100%;
+            margin: 0 auto;
+            background: white;
+            padding: var(--space-2xl);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-2xl);
+            border: 1px solid #e5e7eb;
+            position: relative;
+            z-index: 10;
+        }
+
+        .auth-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #2563eb, #14a0af);
+            border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: var(--space-xl);
+        }
+
+        .auth-header h2 {
+            font-size: clamp(1.75rem, 4vw, 2.25rem);
+            font-weight: 900;
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+            margin-bottom: var(--space-sm);
+            background: linear-gradient(135deg, #2563eb, #14a0af);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: inline-block;
+        }
+
+        .auth-header h2 i {
+            background: linear-gradient(135deg, #2563eb, #14a0af);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-right: var(--space-xs);
+        }
+
+        .auth-subtitle {
+            color: #6b7280;
+            font-size: 1rem;
+            font-weight: 500;
+            margin-top: var(--space-xs);
+        }
+
+        /* =========================================
+           ALERTS
+        ========================================= */
+        .alert {
+            padding: var(--space-md);
+            margin-bottom: var(--space-lg);
+            border-radius: var(--radius-md);
+            font-size: 0.9375rem;
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            font-weight: 600;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .alert i {
+            font-size: 1.25rem;
+        }
+
+        .alert-success {
+            background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+            color: #166534;
+            border: 2px solid #86efac;
+        }
+
+        .alert-error, .alert-danger {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            color: #991b1b;
+            border: 2px solid #fca5a5;
+        }
+
+        /* =========================================
+           FORM SECTIONS
+        ========================================= */
+        .form-section {
+            margin-bottom: var(--space-xl);
+            padding-bottom: var(--space-lg);
+        }
+
+        .section-title {
+            font-size: 1.125rem;
+            font-weight: 800;
+            margin-bottom: var(--space-md);
+            padding-bottom: var(--space-sm);
+            border-bottom: 2px solid #e5e7eb;
+            color: #1f2937;
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            letter-spacing: -0.01em;
+        }
+
+        .section-title i {
+            color: #2563eb;
+            font-size: 1rem;
+        }
+
+        .optional-tag {
+            font-size: 0.75rem;
+            background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+            padding: 4px 12px;
+            border-radius: var(--radius-full);
+            color: #6b7280;
+            margin-left: auto;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .optional-fields {
+            background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+            padding: var(--space-lg);
+            border-radius: var(--radius-lg);
+            border: 2px solid #e5e7eb;
+        }
+
+        /* =========================================
+           FORM INPUTS
+        ========================================= */
+        .auth-form {
+            margin-top: var(--space-lg);
+        }
+
+        .form-row {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-md);
+            margin-bottom: var(--space-sm);
+        }
+
+        @media (min-width: 768px) {
+            .form-row.two-columns {
+                flex-direction: row;
+            }
+            
+            .form-row.two-columns .form-group {
+                flex: 1;
+            }
+        }
+
+        .form-group {
+            margin-bottom: var(--space-md);
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: var(--space-sm);
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: #1f2937;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+
+        .required {
+            color: #dc2626;
+            font-weight: 900;
+            margin-left: 2px;
+        }
+
+        .auth-form input[type="text"],
+        .auth-form input[type="email"],
+        .auth-form input[type="password"],
+        .auth-form input[type="number"],
+        .auth-form select {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2px solid #e5e7eb;
+            border-radius: var(--radius-md);
+            font-size: 1rem;
+            font-weight: 500;
+            transition: all var(--transition-base);
+            background-color: #f9fafb;
+            color: #1f2937;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .auth-form input::placeholder {
+            color: #9ca3af;
+            font-weight: 400;
+        }
+
+        .auth-form input:focus,
+        .auth-form select:focus {
+            border-color: #2563eb;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+            background-color: white;
+        }
+
+        .auth-form select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%231f2937' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            padding-right: 40px;
+            cursor: pointer;
+        }
+
+        /* =========================================
+           PASSWORD TOGGLE
+        ========================================= */
+        .password-input-container {
+            position: relative;
+        }
+
+        .password-input-container input {
+            padding-right: 48px;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #6b7280;
+            transition: color var(--transition-base);
+            padding: 8px;
+        }
+
+        .toggle-password:hover {
+            color: #2563eb;
+        }
+
+        .toggle-password i {
+            font-size: 1.125rem;
+        }
+
+        /* =========================================
+           TERMS CHECKBOX
+        ========================================= */
+        .terms {
+            display: flex;
+            align-items: flex-start;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-lg);
+            padding: var(--space-md);
+            background: #f9fafb;
+            border-radius: var(--radius-md);
+            border: 2px solid #e5e7eb;
+        }
+
+        .terms input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            min-width: 20px;
+            accent-color: #2563eb;
+            cursor: pointer;
+            margin-top: 2px;
+        }
+
+        .terms label {
+            margin: 0;
+            font-size: 0.9375rem;
+            font-weight: 500;
+            color: #4b5563;
+            cursor: pointer;
+            text-transform: none;
+            line-height: 1.5;
+        }
+
+        .terms-link {
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 700;
+            transition: color var(--transition-base);
+        }
+
+        .terms-link:hover {
+            color: #1e40af;
+            text-decoration: underline;
+        }
+
+        /* =========================================
+           SUBMIT BUTTON
+        ========================================= */
+        .form-actions {
+            margin-top: var(--space-xl);
+        }
+
+        .btn-primary {
+            width: 100%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-sm);
+            padding: 16px 24px;
+            font-size: 1rem;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            background: linear-gradient(135deg, #2563eb, #1e40af);
+            color: white;
+            border: none;
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            transition: all var(--transition-base);
+            box-shadow: var(--shadow-lg);
+            text-transform: uppercase;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-xl);
+            background: linear-gradient(135deg, #1e40af, #1e3a8a);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary i {
+            font-size: 1.125rem;
+        }
+
+        /* =========================================
+           AUTH LINKS
+        ========================================= */
+        .auth-links {
+            margin-top: var(--space-xl);
+            text-align: center;
+            font-size: 0.9375rem;
+            padding-top: var(--space-lg);
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-sm);
+            flex-wrap: wrap;
+        }
+
+        .auth-links > span {
+            color: #6b7280;
+            font-weight: 600;
+        }
+
+        .auth-link {
+            color: #2563eb;
+            text-decoration: none;
+            transition: all var(--transition-base);
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .auth-link:hover {
+            color: #1e40af;
+            text-decoration: none;
+            transform: translateY(-1px);
+        }
+
+        .auth-link i {
+            font-size: 0.875rem;
+        }
+
+        /* =========================================
+           COMPANY FIELD
+        ========================================= */
+        .company-field {
+            display: none;
+        }
+
+        /* =========================================
+           RESPONSIVE
+        ========================================= */
+        @media (max-width: 768px) {
+            .auth-section {
+                padding: var(--space-lg) var(--space-md);
+            }
+
+            .auth-container {
+                padding: var(--space-xl) var(--space-lg);
+            }
+
+            .auth-header h2 {
+                font-size: 1.75rem;
+            }
+
+            .form-row.two-columns {
+                flex-direction: column;
+            }
+
+            .optional-fields {
+                padding: var(--space-md);
+            }
+        }
+    </style>
 </head>
 <body>
     {% with active_page='register' %}
@@ -16,10 +487,10 @@
     <main>
         <section class="auth-section">
             <div class="container">
-                <div class="auth-container register-container">
+                <div class="auth-container">
                     <div class="auth-header">
-                        <h2><i class="fas fa-user-plus"></i> CRÉER UN COMPTE</h2>
-                        <p class="auth-subtitle">Rejoignez la communauté MEDICSEARCH</p>
+                        <h2><i class="fas fa-user-plus"></i> Créer un Compte</h2>
+                        <p class="auth-subtitle">Rejoignez la communauté Medialise</p>
                     </div>
                     
                     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -35,32 +506,71 @@
                     
                     <form class="auth-form" method="POST" action="{{ url_for('users.register') }}">
                         <div class="form-section">
-                            <h3 class="section-title"><i class="fas fa-id-card"></i> INFORMATIONS PRINCIPALES</h3>
+                            <h3 class="section-title">
+                                <i class="fas fa-id-card"></i> 
+                                Informations Principales
+                            </h3>
                             
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label for="email">ADRESSE EMAIL <span class="required">*</span></label>
-                                    <input type="email" id="email" name="email" placeholder="Votre adresse email" required>
+                                    <label for="email">
+                                        Adresse Email <span class="required">*</span>
+                                    </label>
+                                    <input 
+                                        type="email" 
+                                        id="email" 
+                                        name="email" 
+                                        placeholder="votre.email@example.com" 
+                                        required
+                                        autocomplete="email"
+                                    >
                                 </div>
                             </div>
                             
                             <div class="form-row two-columns">
                                 <div class="form-group">
-                                    <label for="first_name">PRÉNOM <span class="required">*</span></label>
-                                    <input type="text" id="first_name" name="first_name" placeholder="Votre prénom" required>
+                                    <label for="first_name">
+                                        Prénom <span class="required">*</span>
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        id="first_name" 
+                                        name="first_name" 
+                                        placeholder="Votre prénom" 
+                                        required
+                                        autocomplete="given-name"
+                                    >
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="last_name">NOM <span class="required">*</span></label>
-                                    <input type="text" id="last_name" name="last_name" placeholder="Votre nom" required>
+                                    <label for="last_name">
+                                        Nom <span class="required">*</span>
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        id="last_name" 
+                                        name="last_name" 
+                                        placeholder="Votre nom" 
+                                        required
+                                        autocomplete="family-name"
+                                    >
                                 </div>
                             </div>
                             
                             <div class="form-row two-columns">
                                 <div class="form-group">
-                                    <label for="password">MOT DE PASSE <span class="required">*</span></label>
+                                    <label for="password">
+                                        Mot de Passe <span class="required">*</span>
+                                    </label>
                                     <div class="password-input-container">
-                                        <input type="password" id="password" name="password" placeholder="Votre mot de passe" required>
+                                        <input 
+                                            type="password" 
+                                            id="password" 
+                                            name="password" 
+                                            placeholder="Créez un mot de passe" 
+                                            required
+                                            autocomplete="new-password"
+                                        >
                                         <span class="toggle-password" onclick="togglePasswordVisibility('password')">
                                             <i class="far fa-eye"></i>
                                         </span>
@@ -68,9 +578,18 @@
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="confirm_password">CONFIRMER <span class="required">*</span></label>
+                                    <label for="confirm_password">
+                                        Confirmer <span class="required">*</span>
+                                    </label>
                                     <div class="password-input-container">
-                                        <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirmer le mot de passe" required>
+                                        <input 
+                                            type="password" 
+                                            id="confirm_password" 
+                                            name="confirm_password" 
+                                            placeholder="Confirmez le mot de passe" 
+                                            required
+                                            autocomplete="new-password"
+                                        >
                                         <span class="toggle-password" onclick="togglePasswordVisibility('confirm_password')">
                                             <i class="far fa-eye"></i>
                                         </span>
@@ -79,7 +598,9 @@
                             </div>
                             
                             <div class="form-group">
-                                <label for="role">TYPE D'UTILISATEUR <span class="required">*</span></label>
+                                <label for="role">
+                                    Type d'Utilisateur <span class="required">*</span>
+                                </label>
                                 <select id="role" name="role" required>
                                     <option value="" disabled selected>Choisir un type d'utilisateur</option>
                                     <option value="1">Patient</option>
@@ -94,43 +615,65 @@
                         <!-- Champs optionnels -->
                         <div class="form-section optional-fields">
                             <h3 class="section-title">
-                                <i class="fas fa-info-circle"></i> INFORMATIONS COMPLÉMENTAIRES
+                                <i class="fas fa-info-circle"></i> 
+                                Informations Complémentaires
                                 <span class="optional-tag">Optionnel</span>
                             </h3>
                             
                             <div class="form-row two-columns">
                                 <div class="form-group">
-                                    <label for="age">ÂGE</label>
-                                    <input type="number" id="age" name="age" min="18" max="120" placeholder="Votre âge">
+                                    <label for="age">Âge</label>
+                                    <input 
+                                        type="number" 
+                                        id="age" 
+                                        name="age" 
+                                        min="18" 
+                                        max="120" 
+                                        placeholder="Votre âge"
+                                    >
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="profession">PROFESSION</label>
-                                    <input type="text" id="profession" name="profession" placeholder="Votre profession">
+                                    <label for="profession">Profession</label>
+                                    <input 
+                                        type="text" 
+                                        id="profession" 
+                                        name="profession" 
+                                        placeholder="Votre profession"
+                                    >
                                 </div>
                             </div>
                             
-                            <div class="form-group company-field" style="display: none;">
-                                <label for="company">ÉTABLISSEMENT/SOCIÉTÉ</label>
-                                <input type="text" id="company" name="company" placeholder="Nom de l'établissement ou de la société">
+                            <div class="form-group company-field">
+                                <label for="company">Établissement / Société</label>
+                                <input 
+                                    type="text" 
+                                    id="company" 
+                                    name="company" 
+                                    placeholder="Nom de l'établissement ou de la société"
+                                >
                             </div>
                         </div>
                         
                         <div class="form-group terms">
                             <input type="checkbox" id="terms" name="terms" required>
-                            <label for="terms">J'ACCEPTE LES <a href="#" class="terms-link">CONDITIONS GÉNÉRALES D'UTILISATION</a></label>
+                            <label for="terms">
+                                J'accepte les 
+                                <a href="#" class="terms-link">Conditions Générales d'Utilisation</a>
+                            </label>
                         </div>
                         
                         <div class="form-actions">
                             <button type="submit" class="btn-primary">
-                                <i class="fas fa-user-plus"></i> CRÉER MON COMPTE
+                                <i class="fas fa-user-plus"></i> 
+                                Créer mon Compte
                             </button>
                         </div>
                         
                         <div class="auth-links">
-                            <span>DÉJÀ INSCRIT ?</span>
+                            <span>Déjà inscrit ?</span>
                             <a href="{{ url_for('users.login') }}" class="auth-link">
-                                <i class="fas fa-sign-in-alt"></i> SE CONNECTER
+                                <i class="fas fa-sign-in-alt"></i> Se connecter
                             </a>
                         </div>
                     </form>
@@ -139,92 +682,9 @@
         </section>
     </main>
 
-    {% with now=now|default({"year": 2023}) %}
+    {% with now=now|default({"year": 2026}) %}
     {% include 'components/footer.html' %}
     {% endwith %}
-    
-    <style>
-        .required {
-            color: #e53935;
-            font-weight: bold;
-        }
-        
-        .form-section {
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-        }
-        
-        .section-title {
-            font-size: 1rem;
-            margin-bottom: 15px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid #eee;
-            color: #333;
-        }
-        
-        .form-row {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-        
-        @media (min-width: 768px) {
-            .form-row.two-columns {
-                flex-direction: row;
-            }
-            
-            .form-row.two-columns .form-group {
-                width: 48%;
-            }
-        }
-        
-        .optional-fields {
-            background-color: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            border: 1px solid #eee;
-        }
-        
-        .optional-tag {
-            font-size: 0.8rem;
-            background-color: #e0e0e0;
-            padding: 3px 8px;
-            border-radius: 12px;
-            color: #666;
-            margin-left: 10px;
-            font-weight: normal;
-        }
-        
-        .terms-link {
-            color: var(--primary);
-            text-decoration: underline;
-        }
-        
-        .auth-subtitle {
-            color: #666;
-            margin-top: -10px;
-            margin-bottom: 25px;
-            font-size: 0.9rem;
-        }
-        
-        .password-input-container {
-            position: relative;
-            display: flex;
-            align-items: center;
-        }
-        
-        .toggle-password {
-            position: absolute;
-            right: 12px;
-            cursor: pointer;
-            color: #777;
-        }
-        
-        .register-container {
-            max-width: 700px;
-        }
-    </style>
     
     <script>
         // Afficher le champ "company" uniquement pour les professionnels

@@ -316,11 +316,62 @@ def run_pubchem_enrichment(
             print(" -", e)
 
 
+
+def run_rcp_v3_from_medicine_market(limit: int | None = None, sleep_s: float = 0.2):
+    mm = get_collection("medicine_market")
+
+    query = {"source_urls": {"$elemMatch": {"$regex": r"[?&]typedoc=R\b"}}}
+    proj = {"_id": 1, "cis": 1, "source_urls": 1}
+
+    cursor = mm.find(query, proj)
+    if limit is not None:
+        cursor = cursor.limit(int(limit))
+
+    ok = ko = scanned = 0
+    for doc in cursor:
+        scanned += 1
+        urls = doc.get("source_urls") or []
+        rcp_url = next((u for u in urls if isinstance(u, str) and "typedoc=R" in u), None)
+        if not rcp_url:
+            continue
+
+        if scanned % 100 == 0:
+            print(f"[RCP_V3] scanned={scanned} ok={ok} ko={ko}", flush=True)
+
+        try:
+            rcp_doc = scrape_html(rcp_url)
+
+            mm.update_one(
+                {"_id": doc["_id"]},
+                {"$set": {
+                    "rcp.metadata": rcp_doc.get("metadata"),
+                    "rcp.sections": rcp_doc.get("sections"),   # tu veux garder 'sections'
+                    "rcp.meta_ingest": {
+                        "source": "ansm_html",
+                        "url": rcp_url,
+                        "ingested_at": int(time.time()),
+                    },
+                    "updated_at": int(time.time()),
+                }},
+            )
+            ok += 1
+
+        except Exception as e:
+            ko += 1
+            print(f"[RCP_V3] ❌ cis={doc.get('cis')} url={rcp_url} err={e}")
+
+        if sleep_s > 0:
+            time.sleep(sleep_s)
+
+    print("\n=== DONE RCP_V3 ===")
+    print(f"scanned={scanned} ok={ok} ko={ko}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="MEDIALISE - pipeline scraping/enrichissement")
     parser.add_argument(
         "--mode",
-        choices=["ansm_html", "bdpm_extrait", "cpd", "smr_asmr", "compo", "theriaque", "theriaque_c_indic", "theriaque_indic", "pubchem", "openfda_ndc", "all"],
+        choices=["ansm_html", "bdpm_extrait", "cpd", "smr_asmr", "compo", "theriaque", "theriaque_c_indic", "theriaque_indic", "pubchem", "openfda_ndc", "all", "v2_to_v3_merge", "rcp_v3"],
         default="ansm_html",
         help="ansm_html=RCP HTML via Excel, bdpm_extrait=/extrait via CIS_bdpm.csv, cpd=CPD, smr_asmr=SMR+ASMR, compo=COMPO, theriaque=INTER, all=tout",
     )
@@ -448,6 +499,15 @@ def main():
         )
         print(f"[OPENFDA] DONE: {out}")
         return
+    
+    if args.mode == "rcp_v3":
+        run_rcp_v3_from_medicine_market(limit=args.limit, sleep_s=args.sleep)
+        return
+
+    if args.mode == "v2_to_v3_merge":
+        run_v2_to_v3_merge(limit=args.limit)
+        return
+
 
     if args.mode == "all":
         run_batch(limit=args.limit, sleep_s=args.sleep)
@@ -475,6 +535,120 @@ def main():
             save_images=args.pubchem_save_images,
             )
         return
+    
+
+def _safe_get(d: dict, path: str, default=None):
+    cur = d
+    for key in path.split("."):
+        if not isinstance(cur, dict) or key not in cur:
+            return default
+        cur = cur[key]
+    return cur
+
+def _dedup_by_hash(items: list[dict]) -> list[dict]:
+    seen = set()
+    out = []
+    for it in items:
+        h = _safe_get(it, "metadata.content_hash") or it.get("content_hash")
+        if h and h in seen:
+            continue
+        if h:
+            seen.add(h)
+        out.append(it)
+    return out
+
+
+def run_v2_to_v3_merge(limit: int | None = None):
+    """
+    Merge V2 -> V3 sans casser V3:
+    - lit medicines_v2_backup en legacy
+    - jointure par CIS (V2: bdpm.cis) -> (V3: medicine_market.cis)
+    - push dans medicine_market.rcp.migrations.v2 + medicine_market.theriaque.migrations.v2
+    - optionnel: si V3 n'a pas rcp/theriaque, on peut aussi remplir 'rcp'/'theriaque' (active)
+    """
+    # Legacy collections (V2)
+    import os
+    os.environ["MEDICSEARCH_LEGACY"] = "1"
+    v2 = get_collection("medicines_v2_backup")  # d’après ta capture
+    os.environ.pop("MEDICSEARCH_LEGACY", None)
+
+    # V3 target
+    mm = get_collection("medicine_market")
+
+    cursor = v2.find({}, {"bdpm.cis": 1, "url": 1, "metadata": 1, "sections": 1, "theriaque": 1})
+    if limit is not None:
+        cursor = cursor.limit(int(limit))
+
+    ok = ko = scanned = 0
+    for doc in cursor:
+        scanned += 1
+        cis = _safe_get(doc, "bdpm.cis")
+        if not cis:
+            ko += 1
+            continue
+
+        # Build payloads from V2
+        rcp_v2_payload = None
+        if doc.get("sections") is not None or doc.get("metadata") is not None:
+            rcp_v2_payload = {
+                "source": {
+                    "origin": "v2",
+                    "collection": "medicines_v2_backup",
+                    "doc_id": str(doc.get("_id")),
+                    "url": doc.get("url"),
+                    "migrated_at": int(time.time()),
+                },
+                "metadata": doc.get("metadata"),
+                "sections": doc.get("sections"),
+            }
+
+        theriaque_v2_payload = None
+        if isinstance(doc.get("theriaque"), dict) and doc["theriaque"]:
+            theriaque_v2_payload = {
+                "source": {
+                    "origin": "v2",
+                    "collection": "medicines_v2_backup",
+                    "doc_id": str(doc.get("_id")),
+                    "migrated_at": int(time.time()),
+                },
+                **doc["theriaque"],
+            }
+
+        try:
+            # 1) push migrations arrays (non destructif)
+            update = {"$set": {"updated_at": int(time.time())}}
+            if rcp_v2_payload:
+                update.setdefault("$push", {}).setdefault("rcp.migrations.v2", {"$each": [rcp_v2_payload]})
+            if theriaque_v2_payload:
+                update.setdefault("$push", {}).setdefault("theriaque.migrations.v2", {"$each": [theriaque_v2_payload]})
+
+            res = mm.update_one({"cis": str(cis)}, update)
+            if res.matched_count == 0:
+                # pas de market trouvé pour ce CIS -> on log, on ne crée pas de doc market (sinon ça pollue)
+                ko += 1
+                continue
+
+            ok += 1
+
+            # 2) dédup: on relit le doc et on déduplique les migrations par content_hash
+            # (optionnel mais pratique pour éviter inflation si tu relances)
+            target = mm.find_one({"cis": str(cis)}, {"rcp.migrations.v2": 1})
+            mig = _safe_get(target or {}, "rcp.migrations.v2", [])
+            if isinstance(mig, list) and mig:
+                deduped = _dedup_by_hash(mig)
+                if len(deduped) != len(mig):
+                    mm.update_one({"cis": str(cis)}, {"$set": {"rcp.migrations.v2": deduped}})
+
+            if scanned % 200 == 0:
+                print(f"[V2->V3 MERGE] scanned={scanned} ok={ok} ko={ko}", flush=True)
+
+        except Exception as e:
+            ko += 1
+            print(f"[V2->V3 MERGE] ❌ cis={cis} err={e}")
+
+    print("\n=== DONE V2->V3 MERGE ===")
+    print(f"scanned={scanned} ok={ok} ko={ko}")
+
 
 
 if __name__ == "__main__":

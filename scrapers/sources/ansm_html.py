@@ -410,7 +410,8 @@ def extract_text_content(element) -> Dict[str, Any]:
             formatting["underline"] = True
         if "AmmListePuces" in classes:
             formatting["list_type"] = "bullet"
-        if "center" in classes or "text-align:center" in str(element):
+        style = (element.get("style") or "").lower()
+        if "center" in classes or "text-align:center" in style:
             formatting["alignment"] = "center"
 
     if element.name == "li" or (element.parent and element.parent.name in ["ul", "ol"]):

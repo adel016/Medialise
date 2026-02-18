@@ -1,511 +1,294 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MEDICSEARCH • Base de données médicamenteuse</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
-    <style>
-        /* Enhanced styling for the homepage */
-        section {
-            margin-bottom: 60px;
-        }
-        
-        .hero {
-            background: linear-gradient(135deg, rgba(33, 37, 41, 0.9) 0%, rgba(23, 26, 29, 0.9) 100%),
-                        url("https://images.unsplash.com/photo-1471864190281-a93a3070b6de?ixlib=rb-4.0.3&auto=format&fit=crop&w=1500&q=80");
-            background-size: cover;
-            background-position: center;
-            padding: 10px 0; /* Réduit la hauteur du fond bleu */
-            border-radius: 0 0 30px 30px;
-            margin-bottom: 0px; /* Amène la section suivante (ex: "NOTRE BASE DE DONNÉES") plus haut */
-            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-            max-height: 150px; /* Ajustez cette valeur selon vos besoins */
-            overflow: hidden; /* Pour cacher le contenu qui dépasse */
-        }
-        
-        .hero-content {
-            max-width: 850px; /* Increased from 800px to 850px */
-            margin: 0 auto;
-            text-align: center;
-            padding: 0 20px;
-        }
-        
-        .hero h2 {
-            font-size: 2.5rem; /* Increased from 2.3rem */
-            margin-bottom: 12px;
-            color: white;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            border-bottom: none;
-        }
-        
-        .hero p {
-            font-size: 1.25rem; /* Increased from 1.2rem */
-            margin-bottom: 18px;
-            color: rgba(255,255,255,0.9);
-        }
-        
-        .btn-primary {
-            background-color: #fff;
-            color: #007bff;
-            padding: 12px 30px;
-            border-radius: 50px;
-            font-weight: bold;
-            font-size: 1.1rem;
-            text-decoration: none;
-            transition: all 0.3s;
-            display: inline-block;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        
-        .btn-primary:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-            background-color: #f8f9fa;
-        }
-        
-        .btn-secondary {
-            background-color: #007bff;
-            color: white;
-            padding: 12px 30px;
-            border-radius: 50px;
-            font-weight: bold;
-            text-decoration: none;
-            transition: all 0.3s;
-            display: inline-block;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        
-        .btn-secondary:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-            background-color: #0069d9;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
-        
-        /* Statistics section */
-        .statistics {
-            text-align: center;
-            padding: 40px 0;
-        }
-        
-        .statistics h2 {
-            margin-bottom: 40px;
-            position: relative;
-            display: inline-block;
-        }
-        
-        .statistics h2:after {
-            content: '';
-            position: absolute;
-            width: 60%;
-            height: 3px;
-            background: linear-gradient(90deg, transparent, #ffffff, transparent); /* Changed from #007bff to #ffffff */
-            bottom: -10px;
-            left: 20%;
-        }
-        
-        .stat-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 30px;
-            margin-bottom: 40px;
-        }
-        
-        .stat-card {
-            background-color: #fff;
-            border-radius: 12px;
-            padding: 30px 20px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-            transition: all 0.3s;
-        }
-        
-        .stat-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-        }
-        
-        .stat-number {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #007bff;
-            display: block;
-            margin-bottom: 10px;
-        }
-        
-        .stat-label {
-            font-size: 1rem;
-            color: #6c757d;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        
-        /* Features section */
-        .featured-attractions {
-            padding: 60px 0;
-            background-color: #f8f9fa;
-            border-radius: 20px;
-            margin: 0 20px;
-        }
-        
-        .featured-attractions h2 {
-            text-align: center;
-            margin-bottom: 40px;
-            position: relative;
-            display: inline-block;
-            left: 50%;
-            transform: translateX(-50%);
-        }
-        
-        .featured-attractions h2:after {
-            content: '';
-            position: absolute;
-            width: 60%;
-            height: 3px;
-            background: linear-gradient(90deg, transparent, #ffffff, transparent); /* Changed from #007bff to #ffffff */
-            bottom: -10px;
-            left: 20%;
-        }
-        
-        .attraction-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 30px;
-            margin-bottom: 40px;
-        }
-        
-        .attraction {
-            background-color: #fff;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-            transition: all 0.3s;
-        }
-        
-        .attraction:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-        }
-        
-        .attraction img {
-            width: 100%;
-            height: 200px;
-            object-fit: cover;
-        }
-        
-        .attraction h3 {
-            padding: 20px 20px 10px;
-            font-size: 1.3rem;
-        }
-        
-        .attraction .stats {
-            padding: 0 20px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .attraction .rating {
-            color: #6c757d;
-            font-size: 0.9rem;
-        }
-        
-        .featured-attractions .text-center {
-            text-align: center;
-            margin-top: 30px;
-        }
-        
-        /* About section */
-        .about {
-            padding: 60px 0;
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 20px;
-            margin: 0 20px;
-        }
-        
-        .about-content {
-            display: flex;
-            align-items: center;
-            gap: 40px;
-        }
-        
-        .about__text {
-            flex: 1;
-        }
-        
-        .about__text h2 {
-            margin-bottom: 20px;
-            position: relative;
-            display: inline-block;
-        }
-        
-        .about__text h2:after {
-            content: '';
-            position: absolute;
-            width: 60%;
-            height: 3px;
-            background: linear-gradient(90deg, #ffffff, transparent); /* Changed from #007bff to #ffffff */
-            bottom: -10px;
-            left: 0;
-        }
-        
-        .about__text p {
-            margin-bottom: 20px;
-            line-height: 1.6;
-            color: #495057;
-        }
-        
-        .about__image {
-            flex: 1;
-        }
-        
-        .about__image img {
-            width: 100%;
-            border-radius: 12px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
-        
-        /* New AI feature section */
-        .ai-feature {
-            padding: 60px 0;
-            background: linear-gradient(135deg, #9c27b0 0%, #e91e63 100%);
-            border-radius: 20px;
-            margin: 40px 20px;
-            color: white;
-        }
-        
-        .ai-content {
-            display: flex;
-            align-items: center;
-            gap: 40px;
-        }
-        
-        .ai-image {
-            flex: 1;
-            text-align: center;
-        }
-        
-        .ai-image i {
-            font-size: 120px;
-            color: rgba(255,255,255,0.9);
-            text-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-        
-        .ai-text {
-            flex: 2;
-        }
-        
-        .ai-text h2 {
-            margin-bottom: 20px;
-            font-size: 2.2rem;
-        }
-        
-        .ai-text p {
-            margin-bottom: 20px;
-            line-height: 1.6;
-            font-size: 1.1rem;
-        }
-        
-        .ai-btn {
-            background-color: white;
-            color: #9c27b0;
-            padding: 12px 30px;
-            border-radius: 50px;
-            font-weight: bold;
-            text-decoration: none;
-            display: inline-block;
-            transition: all 0.3s;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-        
-        .ai-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
-            background-color: #f8f9fa;
-        }
-        
-        /* Responsive adjustments */
-        @media (max-width: 768px) {
-            .about-content, .ai-content {
-                flex-direction: column;
-            }
-            
-            .about__image, .ai-image {
-                order: -1;
-            }
-            
-            .hero h2 {
-                font-size: 2.2rem;
-            }
-            
-            .hero p {
-                font-size: 1.2rem;
-            }
-        }
-    </style>
-</head>
-<body>
-    {% with active_page='home' %}
-    {% include 'components/header.html' %}
-    {% endwith %}
+﻿{% extends "base.html" %}
 
-    <main>
-        <section class="hero">
-            <div class="hero-content">
-                <h2>DÉCOUVREZ LES MÉDICAMENTS</h2>
-                <p>ACCÈS À DES MILLIERS D'INFORMATIONS MÉDICAMENTEUSES</p>
-                <div class="dropdown" style="display:inline-block; position:relative;">
-                    <a href="#" class="btn-primary" id="search-dropdown-btn" style="position:relative;">COMMENCER LA RECHERCHE <i class="fas fa-caret-down"></i></a>
-                    <div id="search-dropdown-menu" style="display:none; position:absolute; left:0; right:0; top:110%; background:#fff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.12); min-width:220px; z-index:10;">
-                        <a href="/search" style="display:block; padding:14px 24px; color:#007bff; text-decoration:none; font-weight:500; border-bottom:1px solid #f0f0f0;">Recherche classique</a>
-                        <a href="/vector-search" style="display:block; padding:14px 24px; color:#007bff; text-decoration:none; font-weight:500; border-bottom:1px solid #f0f0f0;">Recherche vectorielle (sémantique)</a>
-                        <a href="/ai-search" style="display:block; padding:14px 24px; color:#007bff; text-decoration:none; font-weight:500;">Recherche IA (langage naturel)</a>
-                    </div>
-                </div>
+{% block title %}Medialise Base de données médicamenteuse{% endblock %}
+
+{% block page_css %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="section hero-section">
+  <div class="section-inner">
+    <div class="hero-content">
+      <span class="badge">{{ _('home.badge') }}</span>
+
+      <h1>
+        {{ _('home.hero_title') }}<br>
+        <span class="accent">{{ _('home.hero_subtitle') }}</span>
+      </h1>
+
+      <p class="hero-text">
+        {{ _('home.hero_description') }}
+      </p>
+
+      <div class="hero-actions">
+        <a href="/search" class="btn btn-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+          {{ _('home.classic_search') }}
+        </a>
+        <a href="/vector-search" class="btn btn-ghost">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+          </svg>
+          {{ _('home.advanced_search') }}
+        </a>
+      </div>
+
+      <div class="hero-footnote">
+        <span class="footnote-item"> {{ _('home.academic_use') }}</span>
+        <span class="footnote-separator"></span>
+        <span class="footnote-item"> {{ _('home.public_data') }}</span>
+        <span class="footnote-separator"></span>
+        <span class="footnote-item"> {{ _('home.not_medical_advice') }}</span>
+      </div>
+    </div>
+
+    <!-- Stats déplacées ici, juste après le hero -->
+    <div class="stats-grid hero-stats">
+      <div class="stat-card">
+        <div class="stat-icon"></div>
+        <div class="stat-number">{{ total_medicines }}</div>
+        <div class="stat-label">{{ _('home.commercial_specialties') }}</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon"></div>
+        <div class="stat-number">{{ substance_count }}</div>
+        <div class="stat-label">{{ _('home.active_substances') }}</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon"></div>
+        <div class="stat-number">{{ lab_count }}</div>
+        <div class="stat-label">{{ _('home.laboratories') }}</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon"></div>
+        <div class="stat-number">6</div>
+        <div class="stat-label">{{ _('home.data_sources') }}</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section architecture-section">
+  <div class="section-inner">
+    <div class="section-header">
+      <div class="section-tag">{{ _('home.architecture') }}</div>
+      <h2>{{ _('home.architecture_title') }}</h2>
+      <p class="section-text">
+        {{ _('home.architecture_description') }}
+      </p>
+    </div>
+
+    <div class="pipeline">
+      <div class="pipeline-step">
+        <div class="step-number">01</div>
+        <div class="step-icon"></div>
+        <h3>{{ _('home.substances') }}</h3>
+        <p>
+          {{ _('home.substances_description') }}
+        </p>
+        <div class="step-badge">{{ _('home.normalization') }}</div>
+      </div>
+
+      <div class="pipeline-arrow">
+        <svg width="40" height="24" viewBox="0 0 40 24" fill="none">
+          <path d="M0 12h36m0 0l-6-6m6 6l-6 6" stroke="currentColor" stroke-width="2"/>
+        </svg>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-number">02</div>
+        <div class="step-icon"></div>
+        <h3>{{ _('home.medicines') }}</h3>
+        <p>
+          {{ _('home.medicines_description') }}
+        </p>
+        <div class="step-badge">{{ _('home.traceability') }}</div>
+      </div>
+
+      <div class="pipeline-arrow">
+        <svg width="40" height="24" viewBox="0 0 40 24" fill="none">
+          <path d="M0 12h36m0 0l-6-6m6 6l-6 6" stroke="currentColor" stroke-width="2"/>
+        </svg>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-number">03</div>
+        <div class="step-icon"></div>
+        <h3>{{ _('home.market') }}</h3>
+        <p>
+          {{ _('home.market_description') }}
+        </p>
+        <div class="step-badge">{{ _('home.multi_sources') }}</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="section features-section">
+  <div class="section-inner">
+    <div class="section-header centered">
+      <div class="section-tag">{{ _('home.features') }}</div>
+      <h2>{{ _('home.features_title') }}</h2>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature feature-primary">
+        <div class="feature-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+        </div>
+        <h3>{{ _('home.classic_search_title') }}</h3>
+        <p>
+          {{ _('home.classic_search_description') }}
+        </p>
+        <a href="/search" class="feature-link">{{ _('home.try') }} </a>
+      </div>
+
+      <div class="feature feature-secondary">
+        <div class="feature-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+          </svg>
+        </div>
+        <h3>{{ _('home.vector_search_title') }}</h3>
+        <p>
+          {{ _('home.vector_search_description') }}
+        </p>
+        <a href="/vector-search" class="feature-link">{{ _('home.try') }} </a>
+      </div>
+
+      <div class="feature feature-accent">
+        <div class="feature-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            <line x1="12" x2="12" y1="19" y2="22"></line>
+          </svg>
+        </div>
+        <h3>{{ _('home.ai_search_title') }}</h3>
+        <p>
+          {{ _('home.ai_search_description') }}
+        </p>
+        <a href="/ai-search" class="feature-link">{{ _('home.try') }} </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="section trust-section">
+  <div class="section-inner">
+    <div class="trust-content">
+      <div class="trust-visual">
+        <div class="trust-badge">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            <path d="m9 12 2 2 4-4"></path>
+          </svg>
+        </div>
+      </div>
+      
+      <div class="trust-text">
+        <div class="section-tag">Transparence</div>
+        <h2>Une aide à la prescription explicable</h2>
+
+        <p class="section-text">
+          Chaque information présentée est traçable jusqu'à sa source
+          (ANSM, Thériaque, DrugBank, PubChem, OpenFDA).
+          L'IA ne génère pas de réponse sans justification.
+        </p>
+
+        <div class="benefit-list">
+          <div class="benefit-item">
+            <div class="benefit-icon"></div>
+            <div>
+              <strong>Sources identifiées et conservées</strong>
+              <p>Chaque donnée est tracée à sa source officielle</p>
             </div>
-        </section>
-
-        <section id="statistics" class="statistics">
-            <div class="container">
-                <h2>NOTRE BASE DE DONNÉES</h2>
-                <div class="stat-grid">
-                    <div class="stat-card">
-                        <span class="stat-number">{{ total_medicines|default('2K+') }}</span>
-                        <span class="stat-label">MÉDICAMENTS</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-number">{{ lab_count|default('100+') }}</span>
-                        <span class="stat-label">LABORATOIRES</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-number">{{ substance_count|default('20+') }}</span>
-                        <span class="stat-label">SUBSTANCES ACTIVES</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-number">24/7</span>
-                        <span class="stat-label">ACCESSIBILITÉ</span>
-                    </div>
-                </div>
+          </div>
+          
+          <div class="benefit-item">
+            <div class="benefit-icon"></div>
+            <div>
+              <strong>Pas de données inventées</strong>
+              <p>L'IA cite uniquement des informations vérifiables</p>
             </div>
-        </section>
-
-        <!-- New AI Summary Feature Section -->
-        <section class="ai-feature">
-            <div class="container">
-                <div class="ai-content">
-                    <div class="ai-text">
-                        <h2>RÉSUMÉS PAR INTELLIGENCE ARTIFICIELLE</h2>
-                        <p>Découvrez notre nouvelle fonctionnalité qui utilise la puissance de l'IA pour générer des résumés clairs et concis de chaque médicament.</p>
-                        <p>Comprenez rapidement les principales utilisations, le fonctionnement et les précautions importantes en un coup d'œil.</p>
-                        <a href="/search" class="ai-btn">EXPLORER MAINTENANT</a>
-                    </div>
-                    <div class="ai-image">
-                        <i class="fas fa-robot"></i>
-                    </div>
-                </div>
+          </div>
+          
+          <div class="benefit-item">
+            <div class="benefit-icon"></div>
+            <div>
+              <strong>Architecture compatible audit & recherche</strong>
+              <p>Conçu pour la traçabilité et la vérification</p>
             </div>
-        </section>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
-        <section class="featured-attractions">
-            <div class="container">
-                <h2>FONCTIONNALITÉS PRINCIPALES</h2>
-                <div class="attraction-grid">
-                    <div class="attraction">
-                        <img src="https://images.unsplash.com/photo-1607619056574-7b8d3ee536b2?auto=format&fit=crop&w=600&q=80" alt="Recherche avancée">
-                        <h3>RECHERCHE AVANCÉE</h3>
-                        <div class="stats">
-                            <span class="rating">Intuitive et rapide</span>
-                        </div>
-                    </div>
-                    <div class="attraction">
-                        <img src="https://images.unsplash.com/photo-1532938911079-1b06ac7ceec7?auto=format&fit=crop&w=600&q=80" alt="Informations détaillées">
-                        <h3>INFORMATIONS DÉTAILLÉES</h3>
-                        <div class="stats">
-                            <span class="rating">Données complètes</span>
-                        </div>
-                    </div>
-                    <div class="attraction">
-                        <img src="https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=600&q=80" alt="Base de données à jour">
-                        <h3>BASE DE DONNÉES À JOUR</h3>
-                        <div class="stats">
-                            <span class="rating">Mises à jour régulières</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="text-center">
-                    <a href="/search" class="btn-secondary">EXPLORER LA BASE DE DONNÉES</a>
-                </div>
+
+<section class="section evolution-section">
+  <div class="section-inner">
+    <div class="evolution-grid">
+      <div class="evolution-content">
+        <div class="section-tag">Évolutivité</div>
+        <h2>Une base évolutive</h2>
+
+        <p class="section-text">
+          Medialise est conçu comme un socle technique extensible.
+          De nouvelles briques peuvent être ajoutées sans remettre en cause
+          les données existantes.
+        </p>
+
+        <div class="tech-stack">
+          <div class="tech-item">
+            <div class="tech-icon"></div>
+            <div>
+              <strong>Base graphe relationnelle</strong>
+              <p>Neo4j pour les relations complexes</p>
             </div>
-        </section>
-
-        <section id="about" class="about">
-            <div class="container">
-                <div class="about-content">
-                    <div class="about__text">
-                        <h2>À PROPOS DE MEDICSEARCH</h2>
-                        <p>MEDICSEARCH est une initiative académique développée dans le cadre de la SAE5.01 pour fournir un accès facile et fiable aux informations médicamenteuses.</p>
-                        <p>Notre objectif est de centraliser et de rendre accessibles les données sur les médicaments, permettant aux utilisateurs de trouver rapidement les informations dont ils ont besoin.</p>
-                        <a href="/search" class="btn-primary">COMMENCER LA RECHERCHE</a>
-                    </div>
-                    <div class="about__image">
-                        <img src="https://images.unsplash.com/photo-1573883430697-4c3479aae6b9?auto=format&fit=crop&w=800&q=80" alt="Recherche médicale">
-                    </div>
-                </div>
+          </div>
+          
+          <div class="tech-item">
+            <div class="tech-icon"></div>
+            <div>
+              <strong>Multi-langue</strong>
+              <p>Support FR / EN / AR</p>
             </div>
-        </section>
-    </main>
+          </div>
+          
+          <div class="tech-item">
+            <div class="tech-icon"></div>
+            <div>
+              <strong>Sources internationales</strong>
+              <p>Extension continue des données</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-    {% with now=now|default({"year": 2025}) %}
-    {% include 'components/footer.html' %}
-    {% endwith %}
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Dropdown menu for search
-            const dropdownBtn = document.getElementById('search-dropdown-btn');
-            const dropdownMenu = document.getElementById('search-dropdown-menu');
-            const logo = document.getElementById('logo-menu-trigger');
-
-            function toggleDropdown(e) {
-                e.preventDefault();
-                dropdownMenu.style.display = dropdownMenu.style.display === 'block' ? 'none' : 'block';
-            }
-            if (dropdownBtn) {
-                dropdownBtn.addEventListener('click', toggleDropdown);
-            }
-            // Hide dropdown when clicking outside
-            document.addEventListener('click', function(e) {
-                if (!dropdownBtn.contains(e.target) && !dropdownMenu.contains(e.target)) {
-                    dropdownMenu.style.display = 'none';
-                }
-            });
-            // Logo click opens dropdown
-            if (logo) {
-                logo.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    dropdownMenu.style.display = dropdownMenu.style.display === 'block' ? 'none' : 'block';
-                });
-            }
-
-            // Smooth scrolling pour les ancres
-            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-                anchor.addEventListener('click', function (e) {
-                    if (this.getAttribute('href').startsWith('#')) {
-                        e.preventDefault();
-                        document.querySelector(this.getAttribute('href')).scrollIntoView({
-                            behavior: 'smooth'
-                        });
-                    }
-                });
-            });
-        });
-    </script>
-</body>
-</html>
+      <div class="evolution-visual">
+        <div class="source-badges">
+          <div class="source-badge">ANSM</div>
+          <div class="source-badge">Thériaque</div>
+          <div class="source-badge">DrugBank</div>
+          <div class="source-badge">PubChem</div>
+          <div class="source-badge">OpenFDA</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

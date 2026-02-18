@@ -1,0 +1,79 @@
+<!-- EXEMPLE D'UTILISATION DES TRADUCTIONS DANS VOS TEMPLATES -->
+
+<!-- 1. Dans vos formulaires de recherche -->
+<input type="text" 
+       name="query" 
+       placeholder="{{ gettext('search_placeholder') }}"
+       class="search-input">
+
+<button type="submit" class="search-btn">
+  {{ gettext('search_button') }}
+</button>
+
+<!-- 2. Dans les titres de page -->
+<h1>{{ gettext('welcome_title') }}</h1>
+<p>{{ gettext('welcome_message') }}</p>
+
+<!-- 3. Dans les résultats de recherche -->
+<div class="results-header">
+  <h2>{{ total }} {{ gettext('results') }}</h2>
+</div>
+
+<!-- 4. Dans les liens et boutons -->
+<a href="/search" class="btn">
+  {{ gettext('classic_search') }}
+</a>
+
+<a href="/vector-search" class="btn">
+  {{ gettext('vector_search') }}
+</a>
+
+<a href="/ai-search" class="btn">
+  {{ gettext('ai_search') }}
+</a>
+
+<!-- 5. Dans les détails de médicament (ATTENTION: ne traduit que les labels, pas les données) -->
+<div class="medicine-info">
+  <div class="field">
+    <label>{{ gettext('medicine_name') }}:</label>
+    <span>{{ medicine.nom }}</span>  <!-- Donnée non traduite -->
+  </div>
+  
+  <div class="field">
+    <label>{{ gettext('active_substance') }}:</label>
+    <span>{{ medicine.substance }}</span>  <!-- Donnée non traduite -->
+  </div>
+  
+  <div class="field">
+    <label>{{ gettext('pharmaceutical_form') }}:</label>
+    <span>{{ medicine.forme }}</span>  <!-- Donnée non traduite -->
+  </div>
+</div>
+
+<!-- 6. Messages conditionnels -->
+{% if results|length == 0 %}
+  <p class="no-results">{{ gettext('no_results') }}</p>
+{% endif %}
+
+<!-- 7. Boutons d'action -->
+<button class="load-more-btn">
+  {{ gettext('load_more') }}
+</button>
+
+<a href="/search" class="back-btn">
+  {{ gettext('back_to_search') }}
+</a>
+
+<a href="/medicine/{{ medicine.id }}" class="details-btn">
+  {{ gettext('see_details') }}
+</a>
+
+<!-- RACCOURCI: Vous pouvez aussi utiliser _() au lieu de gettext() -->
+<h2>{{ _('description') }}</h2>
+<h2>{{ _('composition') }}</h2>
+<h2>{{ _('indications') }}</h2>
+<h2>{{ _('contraindications') }}</h2>
+<h2>{{ _('side_effects') }}</h2>
+<h2>{{ _('dosage_instructions') }}</h2>
+<h2>{{ _('precautions') }}</h2>
+<h2>{{ _('interactions') }}</h2>

@@ -552,14 +552,18 @@ class Log:
 # Initialization function to configure models with the Flask app
 def init_db(app):
     """Initialize the database connection"""
+    # Initialiser PyMongo avec l'application Flask
     mongo.init_app(app)
     
     # S'assurer que l'application a accès à la base de données MongoDB
-    if not hasattr(app, 'db'):
-        app.db = mongo.db
-    
-    # Create indexes if needed
     with app.app_context():
+        if not hasattr(app, 'db'):
+            app.db = mongo.db
+        
+        # Vérifier que mongo.db est bien initialisé
+        if mongo.db is None:
+            raise RuntimeError("mongo.db is None. Check MONGO_URI in config.")
+        
         # Ensure all default roles exist
         Role.ensure_default_roles()
         

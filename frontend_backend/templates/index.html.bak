@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}MedicSearch • Base de données médicamenteuse{% endblock %}
+
+{% block page_css %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="section hero-section">
+  <div class="section-inner">
+    <span class="badge">Plateforme d’aide à la prescription</span>
+
+    <h1>
+      Centraliser, comprendre et exploiter<br>
+      <span class="accent">l’information médicamenteuse</span>
+    </h1>
+
+    <p class="hero-text">
+      MedicSearch est un entrepôt de données médicales multi-sources conçu pour
+      faciliter la recherche, la traçabilité et l’aide à la prescription,
+      à partir de données publiques fiables.
+    </p>
+
+    <div class="hero-actions">
+      <a href="/search" class="btn btn-primary">Recherche classique</a>
+      <a href="/vector-search" class="btn btn-ghost">Recherche avancée</a>
+    </div>
+
+    <div class="hero-footnote">
+      Usage académique • Données publiques • Ne remplace pas un avis médical
+    </div>
+  </div>
+</section>
+
+<section class="section light-section">
+  <div class="section-inner">
+    <h2>Un modèle de données pensé pour le médical</h2>
+
+    <p class="section-text">
+      L’information est organisée selon une architecture en trois niveaux,
+      permettant la normalisation, la traçabilité et l’extension multi-sources.
+    </p>
+
+    <div class="pipeline">
+      <div class="pipeline-step">
+        <h3>Substances</h3>
+        <p>
+          Substances actives normalisées issues de plusieurs bases
+          (ANSM, Thériaque, DrugBank, PubChem).
+        </p>
+      </div>
+
+      <div class="pipeline-arrow">→</div>
+
+      <div class="pipeline-step">
+        <h3>Médicaments</h3>
+        <p>
+          Regroupement par principe actif, gestion des variantes,
+          pays et dénominations.
+        </p>
+      </div>
+
+      <div class="pipeline-arrow">→</div>
+
+      <div class="pipeline-step">
+        <h3>Marché</h3>
+        <p>
+          Spécialités commercialisées par pays, laboratoire,
+          forme, dosage et sources officielles.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="section">
+  <div class="section-inner">
+    <h2>Plusieurs façons d’accéder à l’information</h2>
+
+    <div class="features-grid">
+      <div class="feature">
+        <h3>Recherche classique</h3>
+        <p>
+          Recherche textuelle rapide par nom, CIS, substance ou laboratoire.
+          Résultats lisibles, structurés et sourcés.
+        </p>
+      </div>
+
+      <div class="feature">
+        <h3>Recherche vectorielle</h3>
+        <p>
+          Recherche sémantique basée sur le sens,
+          même si les termes exacts ne correspondent pas.
+        </p>
+      </div>
+
+      <div class="feature">
+        <h3>Recherche IA (RAG)</h3>
+        <p>
+          Un assistant qui interroge la base, cite ses sources
+          et aide à comprendre les informations utiles à la prescription.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="section highlight-section">
+  <div class="section-inner">
+    <h2>Une aide à la prescription explicable</h2>
+
+    <p class="section-text">
+      Chaque information présentée est traçable jusqu’à sa source
+      (ANSM, Thériaque, DrugBank, PubChem, OpenFDA).
+      L’IA ne génère pas de réponse sans justification.
+    </p>
+
+    <ul class="bullet-list">
+      <li>Sources identifiées et conservées</li>
+      <li>Pas de données inventées</li>
+      <li>Architecture compatible audit & recherche</li>
+    </ul>
+  </div>
+</section>
+
+
+<section class="section">
+  <div class="section-inner">
+    <h2>Contenu de l’entrepôt de données</h2>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-number">{{ total_medicines }}</div>
+        <div class="stat-label">Spécialités commerciales</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-number">{{ substance_count }}</div>
+        <div class="stat-label">Substances actives</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-number">{{ lab_count }}</div>
+        <div class="stat-label">Laboratoires</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-number">5</div>
+        <div class="stat-label">Sources de données</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="section light-section">
+  <div class="section-inner">
+    <h2>Une base évolutive</h2>
+
+    <p class="section-text">
+      MedicSearch est conçu comme un socle technique extensible.
+      De nouvelles briques peuvent être ajoutées sans remettre en cause
+      les données existantes.
+    </p>
+
+    <ul class="bullet-list">
+      <li>Base graphe relationnelle (Neo4j)</li>
+      <li>Multi-langue (FR / EN / AR)</li>
+      <li>Ajout de nouvelles sources internationales</li>
+    </ul>
+  </div>
+</section>
+
+
+{% endblock %}

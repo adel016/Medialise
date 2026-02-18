@@ -34,3 +34,6 @@ data/drugbank/
 data/pubchem_images/
 data/pdfs/
 
+# Export base de données
+export_base_données/
+export_base_données.zip

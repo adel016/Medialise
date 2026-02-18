@@ -1,0 +1,320 @@
+# Arabic translations for MEDIALISE.
+# Copyright (C) 2026
+# This file is distributed under the same license as the MEDIALISE project.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: MEDIALISE 1.0\n"
+"Language: ar\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "search_placeholder"
+msgstr "البحث عن دواء..."
+
+msgid "vector_search"
+msgstr "البحث الدلالي"
+
+msgid "classic_search"
+msgstr "البحث الكلاسيكي"
+
+msgid "ai_search"
+msgstr "البحث بالذكاء الاصطناعي"
+
+msgid "search_button"
+msgstr "بحث"
+
+msgid "results"
+msgstr "نتائج"
+
+msgid "no_results"
+msgstr "لم يتم العثور على نتائج"
+
+msgid "load_more"
+msgstr "تحميل المزيد"
+
+msgid "medicine_name"
+msgstr "اسم الدواء"
+
+msgid "active_substance"
+msgstr "المادة الفعالة"
+
+msgid "dosage"
+msgstr "الجرعة"
+
+msgid "pharmaceutical_form"
+msgstr "الشكل الصيدلاني"
+
+msgid "see_details"
+msgstr "عرض التفاصيل"
+
+msgid "back_to_search"
+msgstr "العودة إلى البحث"
+
+msgid "description"
+msgstr "الوصف"
+
+msgid "composition"
+msgstr "التركيب"
+
+msgid "indications"
+msgstr "دواعي الاستعمال"
+
+msgid "contraindications"
+msgstr "موانع الاستعمال"
+
+msgid "side_effects"
+msgstr "الآثار الجانبية"
+
+msgid "dosage_instructions"
+msgstr "تعليمات الجرعة"
+
+msgid "precautions"
+msgstr "احتياطات"
+
+msgid "interactions"
+msgstr "التفاعلات"
+
+msgid "welcome_title"
+msgstr "مرحبا بكم في ميدياليز"
+
+msgid "welcome_message"
+msgstr "قاعدة بيانات الأدوية"
+
+msgid "footer_rights"
+msgstr "جميع الحقوق محفوظة"
+
+# Homepage translations
+msgid "home.badge"
+msgstr "منصة للمساعدة في وصف الأدوية"
+
+msgid "home.hero_title"
+msgstr "مركزة وفهم واستغلال"
+
+msgid "home.hero_subtitle"
+msgstr "المعلومات الدوائية"
+
+msgid "home.hero_description"
+msgstr "ميدياليز هو مستودع بيانات طبية متعدد المصادر مصمم لتسهيل البحث والتتبع والمساعدة في وصف الأدوية، بناءً على بيانات عامة موثوقة."
+
+msgid "home.classic_search"
+msgstr "البحث الكلاسيكي"
+
+msgid "home.advanced_search"
+msgstr "البحث المتقدم"
+
+msgid "home.academic_use"
+msgstr "للاستخدام الأكاديمي"
+
+msgid "home.public_data"
+msgstr "بيانات عامة"
+
+msgid "home.not_medical_advice"
+msgstr "لا يحل محل الاستشارة الطبية"
+
+msgid "home.commercial_specialties"
+msgstr "التخصصات التجارية"
+
+msgid "home.active_substances"
+msgstr "المواد الفعالة"
+
+msgid "home.laboratories"
+msgstr "المختبرات"
+
+msgid "home.data_sources"
+msgstr "مصادر البيانات"
+
+msgid "home.architecture"
+msgstr "الهندسة المعمارية"
+
+msgid "home.architecture_title"
+msgstr "نموذج بيانات مصمم للطب"
+
+msgid "home.architecture_description"
+msgstr "يتم تنظيم المعلومات وفقًا لهندسة معمارية من ثلاثة مستويات، مما يتيح التطبيع والتتبع والتوسع متعدد المصادر."
+
+msgid "home.substances"
+msgstr "المواد"
+
+msgid "home.substances_description"
+msgstr "مواد فعالة موحدة من عدة قواعد بيانات (ANSM، Thériaque، DrugBank، PubChem)."
+
+msgid "home.normalization"
+msgstr "التوحيد"
+
+msgid "home.medicines"
+msgstr "الأدوية"
+
+msgid "home.medicines_description"
+msgstr "تجميع حسب المادة الفعالة، إدارة المتغيرات، البلدان والأسماء."
+
+msgid "home.traceability"
+msgstr "التتبع"
+
+msgid "home.market"
+msgstr "السوق"
+
+msgid "home.market_description"
+msgstr "التخصصات المتاحة تجاريًا حسب البلد والمختبر والشكل والجرعة والمصادر الرسمية."
+
+msgid "home.multi_sources"
+msgstr "متعدد المصادر"
+
+msgid "home.features"
+msgstr "الميزات"
+
+msgid "home.features_title"
+msgstr "طرق متعددة للوصول إلى المعلومات"
+
+msgid "home.classic_search_title"
+msgstr "البحث الكلاسيكي"
+
+msgid "home.classic_search_description"
+msgstr "بحث نصي سريع بالاسم أو CIS أو المادة أو المختبر. نتائج واضحة ومنظمة ومدعومة بالمصادر."
+
+msgid "home.try"
+msgstr "جرب"
+
+msgid "home.vector_search_title"
+msgstr "البحث المتجه"
+
+msgid "home.vector_search_description"
+msgstr "بحث دلالي يعتمد على المعنى، حتى لو لم تتطابق المصطلحات بالضبط."
+
+msgid "home.ai_search_title"
+msgstr "البحث بالذكاء الاصطناعي (RAG)"
+
+msgid "home.ai_search_description"
+msgstr "مساعد يستعلم عن قاعدة البيانات، يذكر مصادره ويساعد على فهم المعلومات المفيدة للوصف الطبي."
+
+# Classic Search Page
+msgid "search.title"
+msgstr "البحث الكلاسيكي"
+
+msgid "search.page_title"
+msgstr "البحث الكلاسيكي - ميدياليز"
+
+msgid "search.try_examples"
+msgstr "جرب البحث الكلاسيكي على الأمثلة:"
+
+msgid "search.try_keywords"
+msgstr "جرب كلمات رئيسية دقيقة أو أسماء أدوية معروفة."
+
+msgid "search.placeholder"
+msgstr "الاسم، المادة الفعالة، المختبر..."
+
+msgid "search.show_filters"
+msgstr "إظهار الفلاتر المتقدمة"
+
+msgid "search.hide_filters"
+msgstr "إخفاء الفلاتر المتقدمة"
+
+msgid "search.active_substance"
+msgstr "المادة الفعالة"
+
+msgid "search.all_substances"
+msgstr "جميع المواد"
+
+msgid "search.pharmaceutical_form"
+msgstr "الشكل الصيدلاني"
+
+msgid "search.all_forms"
+msgstr "جميع الأشكال"
+
+msgid "search.laboratory"
+msgstr "المختبر"
+
+msgid "search.all_laboratories"
+msgstr "جميع المختبرات"
+
+msgid "search.dosage"
+msgstr "الجرعة"
+
+msgid "search.all_dosages"
+msgstr "جميع الجرعات"
+
+msgid "search.search_button"
+msgstr "بحث"
+
+msgid "search.reset_filters"
+msgstr "إعادة تعيين الفلاتر"
+
+msgid "search.results_per_page"
+msgstr "النتائج لكل صفحة:"
+
+msgid "search.no_results"
+msgstr "لم يتم العثور على نتائج"
+
+msgid "search.modify_search"
+msgstr "حاول تعديل مصطلحات البحث أو الفلاتر للعثور على ما تبحث عنه."
+
+msgid "search.error_loading"
+msgstr "تعذر تحميل النتائج. الرجاء المحاولة مرة أخرى لاحقًا."
+
+msgid "search.searching"
+msgstr "جاري البحث..."
+
+msgid "search.medicine"
+msgstr "دواء"
+
+# Medicine Details Page
+msgid "details.page_title"
+msgstr "تفاصيل الدواء"
+
+msgid "details.updated"
+msgstr "تحديث:"
+
+msgid "details.source"
+msgstr "المصدر:"
+
+msgid "details.public_database"
+msgstr "قاعدة البيانات العامة للأدوية"
+
+msgid "details.add_favorite"
+msgstr "إضافة إلى المفضلة"
+
+msgid "details.remove_favorite"
+msgstr "إزالة من المفضلة"
+
+msgid "details.ai_summary"
+msgstr "ملخص بالذكاء الاصطناعي"
+
+msgid "details.general_info"
+msgstr "معلومات عامة"
+
+msgid "details.molecular_structures"
+msgstr "الهياكل الجزيئية"
+
+msgid "details.contraindications"
+msgstr "موانع الاستعمال"
+
+msgid "details.indications"
+msgstr "دواعي الاستعمال"
+
+msgid "details.interactions"
+msgstr "التفاعلات"
+
+msgid "details.pharmacogenomics"
+msgstr "علم الأدوية الجيني"
+
+msgid "details.comments"
+msgstr "التعليقات"
+
+msgid "details.technical_data"
+msgstr "البيانات التقنية"
+
+msgid "details.ai_disclaimer"
+msgstr "هذا الملخص يتم إنشاؤه تلقائيًا وقد يحتوي على معلومات غير دقيقة. استشر دائمًا متخصص الرعاية الصحية."
+
+msgid "details.ai_model"
+msgstr "النموذج المستخدم:"
+
+msgid "details.generating_summary"
+msgstr "جاري إنشاء الملخص..."
+
+msgid "details.laboratory"
+msgstr "المختبر:"
+
+msgid "details.dosage_recommendations"
+msgstr "توصيات الجرعات حسب النمط الجيني"

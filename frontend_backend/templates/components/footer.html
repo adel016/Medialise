@@ -1,37 +1,81 @@
-<footer>
-    <style>
-        footer {
-            background-color: #f8f9fa;
-            padding: 30px 0;
-            margin-top: 60px;
-            border-top: 1px solid #eee;
-            text-align: center;
-        }
+﻿<footer class="site-footer">
+  <div class="footer-container">
+    <div class="footer-grid">
+      <!-- Brand Column -->
+      <div class="footer-brand">
+        <a href="/" class="footer-logo">
+          <div class="footer-logo-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10.5 20.5 10 4m5 .5-1 16M3 5l4.5 16M6.5 5l6 16M16.5 3l1 18M21 5l-6 16"/>
+            </svg>
+          </div>
+          <span class="footer-logo-text">Medialise</span>
+        </a>
         
-        .footer-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
+        <p class="footer-description">
+          Entrepôt de données médicales multi-sources pour faciliter la recherche, 
+          la traçabilité et l''aide à la prescription.
+        </p>
         
-        .footer-text {
-            color: #6c757d;
-            font-size: 0.9rem;
-            line-height: 1.5;
-        }
-        
-        .footer-iut {
-            margin-top: 10px;
-            color: #007bff;
-            font-weight: 600;
-        }
-    </style>
-    
-    <div class="footer-content">
-        <div class="footer-text">
-            <p>&copy; {{ now.year }} MedicSearch. Tous droits réservés.</p>
-            <p>Ce site est conçu à des fins éducatives uniquement.</p>
-            <p class="footer-iut">IUT-Créteil-Vitry</p>
+        <div class="footer-university">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="m2 7 10-5 10 5v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7Z"></path>
+            <polyline points="7 10 12 13 17 10"></polyline>
+          </svg>
+          IUT Créteil-Vitry
         </div>
+      </div>
+
+      <!-- Recherche Column -->
+      <div class="footer-column">
+        <h4>Recherche</h4>
+        <ul class="footer-links">
+          <li><a href="/search" class="footer-link">Recherche classique</a></li>
+          <li><a href="/vector-search" class="footer-link">Recherche vectorielle</a></li>
+          <li><a href="/ai-search" class="footer-link">Recherche IA (RAG)</a></li>
+        </ul>
+      </div>
+
+      <!-- Ressources Column -->
+      <div class="footer-column">
+        <h4>Ressources</h4>
+        <ul class="footer-links">
+          <li><a href="https://ansm.sante.fr" target="_blank" class="footer-link">ANSM</a></li>
+          <li><a href="https://www.theriaque.org" target="_blank" class="footer-link">Thériaque</a></li>
+          <li><a href="https://go.drugbank.com" target="_blank" class="footer-link">DrugBank</a></li>
+          <li><a href="https://pubchem.ncbi.nlm.nih.gov" target="_blank" class="footer-link">PubChem</a></li>
+        </ul>
+      </div>
+
+      <!-- À Propos Column -->
+      <div class="footer-column">
+        <h4>À Propos</h4>
+        <ul class="footer-links">
+          <li><a href="/" class="footer-link">Accueil</a></li>
+          {% if g.user %}
+            <li><a href="{{ url_for('users.profile') }}" class="footer-link">Profil</a></li>
+            <li><a href="{{ url_for('users.logout') }}" class="footer-link">Déconnexion</a></li>
+          {% else %}
+            <li><a href="{{ url_for('users.login') }}" class="footer-link">Connexion</a></li>
+          {% endif %}
+        </ul>
+      </div>
     </div>
+
+    <!-- Footer Bottom -->
+    <div class="footer-bottom">
+      <div class="footer-copyright">
+        &copy; {{ now.year }} Medialise. Tous droits réservés.
+      </div>
+
+      <div class="footer-disclaimer">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+          <line x1="12" x2="12" y1="9" y2="13"></line>
+          <line x1="12" x2="12.01" y1="17" y2="17"></line>
+        </svg>
+        Usage académique uniquement
+      </div>
+    </div>
+  </div>
 </footer>

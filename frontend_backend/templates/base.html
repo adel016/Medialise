@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="{{ session.get('language', 'fr') }}">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>{% block title %}MEDIALISE • Base de données médicamenteuse{% endblock %}</title>
+
+  <!-- Variables (toujours en premier) -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/variables.css') }}">
+
+  <!-- CSS existants -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  
+  <!-- Support RTL pour l'arabe -->
+  {% if session.get('language') == 'ar' %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/rtl.css') }}">
+  {% endif %}
+  
+  {% block page_css %}{% endblock %}
+
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+</head>
+
+<body style="background: var(--color-bg); color: var(--color-text);">
+  {% block header %}
+    {% include "components/header.html" %}
+  {% endblock %}
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  {% block footer %}
+    {% with now=now|default({"year": 2026}) %}
+      {% include "components/footer.html" %}
+    {% endwith %}
+  {% endblock %}
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

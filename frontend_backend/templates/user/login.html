@@ -3,10 +3,394 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MEDICSEARCH • Connexion</title>
+    <title>Connexion - Medialise</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <style>
+        /* =========================================
+           MODERN AUTH DESIGN SYSTEM
+        ========================================= */
+        :root {
+            --space-xs: 0.5rem;
+            --space-sm: 1rem;
+            --space-md: 1.5rem;
+            --space-lg: 2rem;
+            --space-xl: 3rem;
+            --space-2xl: 4rem;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --radius-full: 999px;
+            --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.03);
+            --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+            --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.10), 0 4px 8px rgba(0, 0, 0, 0.06);
+            --shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.12), 0 6px 12px rgba(0, 0, 0, 0.08);
+            --shadow-2xl: 0 20px 40px rgba(0, 0, 0, 0.14), 0 10px 20px rgba(0, 0, 0, 0.10);
+            --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* =========================================
+           AUTH SECTION - MODERN BACKGROUND
+        ========================================= */
+        .auth-section {
+            min-height: calc(100vh - 140px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-2xl) var(--space-md);
+            background:
+                radial-gradient(ellipse 1000px 500px at 50% 0%, rgba(37, 99, 235, 0.08), transparent 70%),
+                radial-gradient(ellipse 800px 400px at 90% 100%, rgba(20, 160, 175, 0.06), transparent 70%),
+                linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .auth-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%232563eb' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
+        /* =========================================
+           AUTH CONTAINER - MODERN CARD
+        ========================================= */
+        .auth-container {
+            max-width: 480px;
+            width: 100%;
+            margin: 0 auto;
+            background: white;
+            padding: var(--space-2xl);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-2xl);
+            border: 1px solid #e5e7eb;
+            position: relative;
+            z-index: 10;
+        }
+
+        .auth-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #2563eb, #14a0af);
+            border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+        }
+
+        /* =========================================
+           AUTH HEADER
+        ========================================= */
+        .auth-header {
+            text-align: center;
+            margin-bottom: var(--space-xl);
+        }
+
+        .auth-header h2 {
+            font-size: clamp(1.75rem, 4vw, 2.25rem);
+            font-weight: 900;
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+            margin-bottom: var(--space-sm);
+            background: linear-gradient(135deg, #2563eb, #14a0af);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: inline-block;
+        }
+
+        .auth-header h2 i {
+            background: linear-gradient(135deg, #2563eb, #14a0af);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-right: var(--space-xs);
+        }
+
+        .auth-subtitle {
+            color: #6b7280;
+            font-size: 1rem;
+            font-weight: 500;
+            margin-top: var(--space-xs);
+        }
+
+        /* =========================================
+           ALERTS - MODERN STYLE
+        ========================================= */
+        .alert {
+            padding: var(--space-md);
+            margin-bottom: var(--space-lg);
+            border-radius: var(--radius-md);
+            font-size: 0.9375rem;
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            font-weight: 600;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .alert i {
+            font-size: 1.25rem;
+        }
+
+        .alert-success {
+            background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+            color: #166534;
+            border: 2px solid #86efac;
+        }
+
+        .alert-error, .alert-danger {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            color: #991b1b;
+            border: 2px solid #fca5a5;
+        }
+
+        .alert-info {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            color: #1e40af;
+            border: 2px solid #93c5fd;
+        }
+
+        /* =========================================
+           FORM - MODERN INPUTS
+        ========================================= */
+        .auth-form {
+            margin-top: var(--space-lg);
+        }
+
+        .form-group {
+            margin-bottom: var(--space-lg);
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: var(--space-sm);
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: #1f2937;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+
+        .form-group label i {
+            color: #2563eb;
+            margin-right: var(--space-xs);
+            font-size: 0.9rem;
+        }
+
+        .auth-form input[type="text"],
+        .auth-form input[type="email"],
+        .auth-form input[type="password"],
+        .auth-form input[type="number"],
+        .auth-form select {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2px solid #e5e7eb;
+            border-radius: var(--radius-md);
+            font-size: 1rem;
+            font-weight: 500;
+            transition: all var(--transition-base);
+            background-color: #f9fafb;
+            color: #1f2937;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .auth-form input::placeholder {
+            color: #9ca3af;
+            font-weight: 400;
+        }
+
+        .auth-form input:focus,
+        .auth-form select:focus {
+            border-color: #2563eb;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+            background-color: white;
+        }
+
+        /* =========================================
+           PASSWORD INPUT WITH TOGGLE
+        ========================================= */
+        .password-input-container {
+            position: relative;
+        }
+
+        .password-input-container input {
+            padding-right: 48px;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #6b7280;
+            transition: color var(--transition-base);
+            padding: 8px;
+        }
+
+        .toggle-password:hover {
+            color: #2563eb;
+        }
+
+        .toggle-password i {
+            font-size: 1.125rem;
+        }
+
+        /* =========================================
+           REMEMBER ME CHECKBOX
+        ========================================= */
+        .remember-me {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-lg);
+        }
+
+        .remember-me input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            accent-color: #2563eb;
+            cursor: pointer;
+        }
+
+        .remember-me label {
+            margin: 0;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: #4b5563;
+            cursor: pointer;
+            text-transform: none;
+        }
+
+        /* =========================================
+           SUBMIT BUTTON - MODERN GRADIENT
+        ========================================= */
+        .form-actions {
+            margin-top: var(--space-xl);
+        }
+
+        .btn-primary {
+            width: 100%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-sm);
+            padding: 16px 24px;
+            font-size: 1rem;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            background: linear-gradient(135deg, #2563eb, #1e40af);
+            color: white;
+            border: none;
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            transition: all var(--transition-base);
+            box-shadow: var(--shadow-lg);
+            text-transform: uppercase;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-xl);
+            background: linear-gradient(135deg, #1e40af, #1e3a8a);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary i {
+            font-size: 1.125rem;
+        }
+
+        /* =========================================
+           AUTH LINKS - MODERN STYLE
+        ========================================= */
+        .auth-links {
+            margin-top: var(--space-xl);
+            text-align: center;
+            font-size: 0.9375rem;
+            padding-top: var(--space-lg);
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .auth-link {
+            color: #2563eb;
+            text-decoration: none;
+            transition: all var(--transition-base);
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .auth-link:hover {
+            color: #1e40af;
+            text-decoration: none;
+            transform: translateY(-1px);
+        }
+
+        .auth-link i {
+            font-size: 0.875rem;
+        }
+
+        .separator {
+            margin: 0 var(--space-md);
+            color: #d1d5db;
+            font-weight: 400;
+        }
+
+        /* =========================================
+           RESPONSIVE DESIGN
+        ========================================= */
+        @media (max-width: 768px) {
+            .auth-section {
+                padding: var(--space-lg) var(--space-md);
+            }
+
+            .auth-container {
+                padding: var(--space-xl) var(--space-lg);
+            }
+
+            .auth-header h2 {
+                font-size: 1.75rem;
+            }
+
+            .auth-links {
+                display: flex;
+                flex-direction: column;
+                gap: var(--space-md);
+            }
+
+            .separator {
+                display: none;
+            }
+        }
+    </style>
 </head>
 <body>
     {% with active_page='login' %}
@@ -18,8 +402,8 @@
             <div class="container">
                 <div class="auth-container">
                     <div class="auth-header">
-                        <h2><i class="fas fa-lock"></i> CONNEXION</h2>
-                        <p class="auth-subtitle">Accédez à votre espace personnel</p>
+                        <h2><i class="fas fa-lock"></i> Connexion</h2>
+                        <p class="auth-subtitle">Accédez à votre espace personnel sécurisé</p>
                     </div>
                     
                     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -35,14 +419,32 @@
                     
                     <form class="auth-form" method="POST" action="{{ url_for('users.login') }}">
                         <div class="form-group">
-                            <label for="email"><i class="fas fa-envelope"></i> ADRESSE EMAIL</label>
-                            <input type="email" id="email" name="email" placeholder="Votre adresse email" required>
+                            <label for="email">
+                                <i class="fas fa-envelope"></i> Adresse Email
+                            </label>
+                            <input 
+                                type="email" 
+                                id="email" 
+                                name="email" 
+                                placeholder="votre.email@example.com" 
+                                required
+                                autocomplete="email"
+                            >
                         </div>
                         
                         <div class="form-group">
-                            <label for="password"><i class="fas fa-key"></i> MOT DE PASSE</label>
+                            <label for="password">
+                                <i class="fas fa-key"></i> Mot de Passe
+                            </label>
                             <div class="password-input-container">
-                                <input type="password" id="password" name="password" placeholder="Votre mot de passe" required>
+                                <input 
+                                    type="password" 
+                                    id="password" 
+                                    name="password" 
+                                    placeholder="Entrez votre mot de passe" 
+                                    required
+                                    autocomplete="current-password"
+                                >
                                 <span class="toggle-password" onclick="togglePasswordVisibility()">
                                     <i class="far fa-eye"></i>
                                 </span>
@@ -51,22 +453,23 @@
                         
                         <div class="form-group remember-me">
                             <input type="checkbox" id="remember" name="remember">
-                            <label for="remember">SE SOUVENIR DE MOI</label>
+                            <label for="remember">Se souvenir de moi</label>
                         </div>
                         
                         <div class="form-actions">
                             <button type="submit" class="btn-primary">
-                                <i class="fas fa-sign-in-alt"></i> SE CONNECTER
+                                <i class="fas fa-sign-in-alt"></i> 
+                                Se Connecter
                             </button>
                         </div>
                         
                         <div class="auth-links">
                             <a href="{{ url_for('users.register') }}" class="auth-link">
-                                <i class="fas fa-user-plus"></i> CRÉER UN COMPTE
+                                <i class="fas fa-user-plus"></i> Créer un compte
                             </a>
                             <span class="separator">|</span>
                             <a href="#" class="auth-link">
-                                <i class="fas fa-question-circle"></i> MOT DE PASSE OUBLIÉ ?
+                                <i class="fas fa-question-circle"></i> Mot de passe oublié ?
                             </a>
                         </div>
                     </form>
@@ -75,7 +478,7 @@
         </section>
     </main>
 
-    {% with now=now|default({"year": 2023}) %}
+    {% with now=now|default({"year": 2026}) %}
     {% include 'components/footer.html' %}
     {% endwith %}
     

@@ -1,10 +1,13 @@
 import os
 
 class Config:
-    """Configuration de base pour l'application MedicSearch"""
+    """Configuration de base pour l'application Medialise"""
     
     # Configuration MongoDB
-    MONGO_URI = 'mongodb://mongo:27017/medicsearch'
+    # Utilise la variable MONGO_URI du docker-compose ou localhost par défaut
+    # En développement hors Docker : mongodb://localhost:27017/medicsearch
+    # Dans Docker : mongodb://mongo:27017/medicsearch
+    MONGO_URI = os.environ.get('MONGO_URI', 'mongodb://localhost:27017/medicsearch')
     
     # Configuration de sécurité
     # SECRET_KEY reste nécessaire pour les flash messages et la protection CSRF
@@ -47,7 +50,8 @@ class ProductionConfig(Config):
 class TestingConfig(Config):
     """Configuration pour les tests"""
     TESTING = True
-    MONGO_URI = 'mongodb://mongo:27017/medicsearch_test'
+    MONGO_HOST = os.environ.get('MONGO_HOST', 'localhost')
+    MONGO_URI = f'mongodb://{MONGO_HOST}:27017/medicsearch_test'
 
 # Dictionnaire pour sélectionner la configuration selon l'environnement
 config = {

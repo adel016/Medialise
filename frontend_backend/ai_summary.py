@@ -6,7 +6,7 @@ def call_mistral_reformulate(user_query):
     Returns:
         str: Question reformulée
     """
-    if not MISTRAL_API_KEY:
+    if not MISTRAL_AVAILABLE or not MISTRAL_API_KEY:
         return user_query  # fallback: retourne la question d'origine
     prompt = f"""
     Reformule la question suivante pour une recherche documentaire médicale, en ne gardant QUE les mots-clés essentiels, sans phrase complète, sans explication, sans ponctuation superflue. 
@@ -49,8 +49,8 @@ def call_mistral_summarize(user_query, docs):
     Returns:
         str: Réponse synthétique générée par l'IA
     """
-    if not MISTRAL_API_KEY:
-        return "<p>Erreur : Clé API Mistral manquante.</p>"
+    if not MISTRAL_AVAILABLE or not MISTRAL_API_KEY:
+        return "<p>Fonctionnalité IA non disponible.</p>"
     # Préparer un contexte court à partir des documents (extraits, titres)
     context = ""
     for i, doc in enumerate(docs):
@@ -107,17 +107,28 @@ import re
 from dotenv import load_dotenv
 import time
 import logging
-from mistralai import Mistral
+from pathlib import Path
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file at project root
+# Look for .env in parent directory (project root)
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(dotenv_path=env_path)
 
 # Get API key from environment variables
 MISTRAL_API_KEY = os.getenv('MISTRAL_API_KEY')
+
+# Try to import Mistral, but allow app to run without it
+try:
+    from mistralai import Mistral
+    MISTRAL_AVAILABLE = True
+except ImportError:
+    logger.warning("mistralai module not installed - AI features will be disabled")
+    Mistral = None
+    MISTRAL_AVAILABLE = False
 
 # Cache duration in seconds (10 minutes)
 CACHE_DURATION = 600
@@ -267,6 +278,10 @@ def get_or_generate_summary(medicine, db=None):
     Returns:
         str: AI-generated or cached summary
     """
+    # If Mistral is not available, return a message
+    if not MISTRAL_AVAILABLE:
+        return "<p>Fonctionnalité IA non disponible (module mistralai non installé)</p>"
+    
     medicine_id = medicine.get('_id')
     current_time = int(time.time())
     

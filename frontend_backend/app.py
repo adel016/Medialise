@@ -2,6 +2,7 @@ from ai_summary import get_or_generate_summary, call_mistral_reformulate, call_m
 # --- Initialisation Flask et Qdrant ---
 
 from flask import Flask, request, render_template, jsonify, abort, redirect, url_for, stream_with_context, Response, session, g
+from flask_babel import Babel, gettext, get_locale
 from qdrant_client import QdrantClient
 from sentence_transformers import SentenceTransformer
 from pymongo import MongoClient
@@ -13,6 +14,7 @@ import hashlib
 from functools import lru_cache
 import os
 import datetime
+import re
 from models import init_db, mongo, User
 import users  # Importer le module users complet
 from users import role_required  # Importer la fonction spécifique role_required
@@ -23,6 +25,10 @@ from pymongo.errors import ServerSelectionTimeoutError
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from collections import Counter
+from flask import render_template_string
+from bson.objectid import ObjectId
+
 
 # --- Initialisation Flask et Qdrant ---
 app = Flask(__name__)
@@ -30,6 +36,31 @@ app = Flask(__name__)
 
 app_config = get_config()
 app.config.from_object(app_config)
+
+# Définir MONGO_DB aussi si nécessaire (flask-pymongo l'utilise)
+if 'MONGO_DB' not in app.config:
+    app.config['MONGO_DB'] = 'medicsearch'
+
+# Configuration de Babel pour l'internationalisation
+app.config['BABEL_DEFAULT_LOCALE'] = 'fr'
+app.config['BABEL_TRANSLATION_DIRECTORIES'] = 'translations'
+app.config['LANGUAGES'] = {
+    'fr': {'name': 'Français', 'flag': '🇫🇷'},
+    'en': {'name': 'English', 'flag': '🇬🇧'},
+    'ar': {'name': 'العربية', 'flag': '🇸🇦'}
+}
+
+babel = Babel(app)
+
+def get_locale():
+    """Détermine la langue à utiliser pour l'utilisateur"""
+    # 1. Vérifier si la langue est stockée dans la session
+    if 'language' in session:
+        return session['language']
+    # 2. Utiliser la langue du navigateur
+    return request.accept_languages.best_match(app.config['LANGUAGES'].keys())
+
+babel.init_app(app, locale_selector=get_locale)
 
 qdrant_client = QdrantClient("qdrant", port=6333)
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -42,9 +73,11 @@ def wait_for_mongo(uri, timeout=30):
         try:
             client.admin.command("ping")
             print("MongoDB est prêt.")
+            client.close()
             return
         except ServerSelectionTimeoutError:
             if time.time() - start > timeout:
+                client.close()
                 raise
             print("MongoDB pas encore prêt, nouvelle tentative...")
             time.sleep(2)
@@ -111,11 +144,18 @@ wait_for_mongo(app.config["MONGO_URI"])
 init_db(app)
 
 # Utiliser mongo.db pour accéder à la base de données MongoDB après l'initialisation
-# Utiliser la bonne collection MongoDB : 'medicines'
 db = mongo.db
-collection = db['medicines']
-# Définir db comme attribut de l'application pour qu'il soit accessible partout
 app.db = db
+
+# --- Collections V3 ---
+medicines_v3 = db["medicines_v3"]
+substances_v3 = db["substances_v3"]
+medicine_market = db["medicine_market"]
+
+# IMPORTANT:
+# - on garde "collection" pour compatibilité avec le reste du code (recherche classique, détails, etc.)
+# - on pointe maintenant sur medicines_v3
+collection = medicines_v3
 
 # Fonction pour convertir les objets BSON en JSON serializable
 def bson_to_json(data):
@@ -152,92 +192,127 @@ def get_update_date(med: dict) -> str:
 
 @app.route('/')
 def index():
-    """Page d'accueil"""
-    # Utiliser la connexion MongoDB déjà établie au lieu de models.mongo.db
-    
-    # Obtenir des statistiques sur la base de données
-    total_medicines = collection.count_documents({})
-    
-    # Récupérer des statistiques de base
-    lab_count = len(db.medicines.distinct(
-        "metadata.medicine_details.laboratoire",
-        {"metadata.medicine_details.laboratoire": {"$nin": [None, ""]}}
-    ))
+    # --- V3 collections ---
+    db = mongo.db
+    medicines_v3 = db["medicines_v3"]
+    substances_v3 = db["substances_v3"]
+    medicine_market = db["medicine_market"]
 
-    substance_count = len(db.medicines.distinct(
-        "metadata.medicine_details.substances_actives",
-        {"metadata.medicine_details.substances_actives": {"$exists": True, "$ne": []}}
-    ))
+    # 1) Total "médocs réels" = lignes market
+    total_medicines = medicine_market.count_documents({})
 
-    
-    # Récupérer les médicaments les plus récemment mis à jour pour la section "featured"
-    featured_medicines = list(db.medicines.find({}, {"title": 1, "update_date": 1})
-                           .sort("update_date", -1).limit(3))
-    
-    return render_template('index.html',
-                          total_medicines=total_medicines,
-                          lab_count=lab_count,
-                          substance_count=substance_count,
-                          featured_medicines=featured_medicines)
+    # 2) Substances (V3)
+    substance_count = substances_v3.count_documents({})
+
+    # 3) Laboratoires (market a un champ laboratory propre)
+    # distinct sur market => plus fiable que de deviner un champ dans medicines_v3
+    lab_count = len(medicine_market.distinct("laboratory", {"laboratory": {"$nin": [None, ""]}}))
+
+    # 4) Répartition par pays (top 8)
+    pipeline_countries = [
+        {"$match": {"country": {"$nin": [None, ""]}}},
+        {"$group": {"_id": "$country", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 8}
+    ]
+    countries_stats = list(medicine_market.aggregate(pipeline_countries))
+    # format: [{"country":"FR","count":7749}, ...]
+    countries_stats = [{"country": d["_id"], "count": d["count"]} for d in countries_stats]
+
+    max_country_count = countries_stats[0]["count"] if countries_stats else 1
+
+
+    # 5) Présence des sources (d’après source_urls)
+    # On compte combien de docs market contiennent une URL qui match un domaine
+    source_patterns = {
+        "ANSM/BDPM": "base-donnees-publique.medicaments.gouv.fr",
+        "Thériaque": "theriaque",
+        "DrugBank": "drugbank",
+        "PubChem": "pubchem",
+        "OpenFDA": "openfda",
+    }
+
+    sources_stats = []
+    for label, pattern in source_patterns.items():
+        c = medicine_market.count_documents({"source_urls": {"$elemMatch": {"$regex": pattern, "$options": "i"}}})
+        sources_stats.append({"source": label, "count": c})
+
+    # 6) Petit bloc “latest” : derniers ajouts market (utile sur home)
+    latest_market = list(
+        medicine_market.find(
+            {},
+            {"_id": 1, "brand_title": 1, "country": 1, "laboratory": 1, "cis": 1, "updated_at": 1}
+        ).sort([("updated_at", -1)]).limit(5)
+    )
+
+    return render_template(
+        "index.html",
+        total_medicines=total_medicines,
+        lab_count=lab_count,
+        substance_count=substance_count,
+        countries_stats=countries_stats,
+        sources_stats=sources_stats,
+        latest_market=latest_market,
+        max_country_count=max_country_count,
+    )
+
+
+@app.route('/test-v3')
+def test_v3():
+    """Page de test pour la nouvelle architecture V3"""
+    return render_template("test_v3.html")
+
 
 def extract_filter_options():
-    """Extrait les options de filtre disponibles à partir de l'ensemble de la base de données"""
-    # Vérifier si nous avons déjà extrait les options de filtrage
-    cached_filters = getattr(extract_filter_options, 'cached_filters', None)
-    if cached_filters:
-        return cached_filters
-    
-    # Initialiser les ensembles pour stocker les valeurs uniques
-    substances_actives = set()
-    formes_pharma = set()
-    laboratoires = set()
-    dosages = set()
-    
-    # Analyser un échantillon représentatif de la base de données
+    """
+    Filtres pour la recherche classique (V3).
+    - substances: depuis substances_v3.label
+    - formes/lab/dosages/countries: depuis medicine_market
+    """
+    cached = getattr(extract_filter_options, "_cache", None)
+    if cached:
+        return cached
+
     try:
-        sample_size = 100
-        medicines = list(collection.find().limit(sample_size))
-        
-        for medicine in medicines:
-            # Extraction directement depuis medicine_details
-            if 'medicine_details' in medicine:
-                # Substances actives
-                if 'substances_actives' in medicine['medicine_details'] and medicine['medicine_details']['substances_actives']:
-                    for substance in medicine['medicine_details']['substances_actives']:
-                        if substance and len(substance) > 2:  # Ignorer les valeurs trop courtes
-                            substances_actives.add(substance)
-                
-                # Formes pharmaceutiques
-                if 'forme' in medicine['medicine_details'] and medicine['medicine_details']['forme']:
-                    forme = medicine['medicine_details']['forme']
-                    if forme and len(forme) > 2:  # Ignorer les valeurs trop courtes
-                        formes_pharma.add(forme)
-                
-                # Laboratoires
-                if 'laboratoire' in medicine['medicine_details'] and medicine['medicine_details']['laboratoire']:
-                    laboratoire = medicine['medicine_details']['laboratoire']
-                    if laboratoire and len(laboratoire) > 2:
-                        laboratoires.add(laboratoire)
-                
-                # Dosages
-                if 'dosages' in medicine['medicine_details'] and medicine['medicine_details']['dosages']:
-                    for dosage in medicine['medicine_details']['dosages']:
-                        if dosage and len(str(dosage)) > 1:
-                            dosages.add(dosage)
+        substances = substances_v3.distinct("label", {"label": {"$nin": [None, ""]}})
+        formes = medicine_market.distinct("form", {"form": {"$nin": [None, ""]}})
+        laboratoires = medicine_market.distinct("laboratory", {"laboratory": {"$nin": [None, ""]}})
+        dosages = medicine_market.distinct("strength", {"strength": {"$nin": [None, ""]}})
+        countries = medicine_market.distinct("country", {"country": {"$nin": [None, ""]}})
+
+        result = {
+            "substances": sorted([s for s in substances if isinstance(s, str) and s.strip()]),
+            "formes": sorted([f for f in formes if isinstance(f, str) and f.strip()]),
+            "laboratoires": sorted([l for l in laboratoires if isinstance(l, str) and l.strip()]),
+            "dosages": sorted([d for d in dosages if isinstance(d, str) and d.strip()]),
+            "countries": sorted([c for c in countries if isinstance(c, str) and c.strip()]),
+        }
+
+        extract_filter_options._cache = result
+        return result
+
     except Exception as e:
-        print(f"Erreur lors de l'extraction des filtres: {e}")
-    
-    # Convertir en listes triées
-    result = {
-        'substances': sorted(list(substances_actives)),
-        'formes': sorted(list(formes_pharma)),
-        'laboratoires': sorted(list(laboratoires)),
-        'dosages': sorted(list(dosages))
-    }
-    
-    # Cacher les résultats comme attribut de la fonction pour les prochains appels
-    extract_filter_options.cached_filters = result
-    return result
+        print(f"[extract_filter_options V3] erreur: {e}")
+        return {"substances": [], "formes": [], "laboratoires": [], "dosages": [], "countries": []}
+
+
+def infer_source_tags(market_doc, med_doc):
+    tags = set()
+
+    # market: URLs -> BDPM/ANSM (RCP) en France
+    for u in (market_doc.get("source_urls") or []):
+        if not isinstance(u, str):
+            continue
+        ul = u.lower()
+        if "base-donnees-publique.medicaments.gouv.fr" in ul:
+            tags.add("BDPM/ANSM")
+
+    # substances: pubchem/drugbank
+    # (souvent présent via medicines_v3.substance_ref_ids -> substances_v3, mais ici on check med_doc si tu y stockes)
+    # On ne peut pas accéder à substances_v3 ici sans map, donc on renverra aussi "has_pubchem/drugbank" depuis la boucle plus bas
+    return sorted(tags)
+
+
 
 def extract_filter_options_from_results(medicines):
     """Extrait les options de filtre disponibles uniquement à partir des résultats actuels"""
@@ -295,8 +370,9 @@ def search():
     forme = request.args.get('forme', '')
     laboratoire = request.args.get('laboratoire', '')
     dosage = request.args.get('dosage', '')
-    sort_option = request.args.get('sort', 'date_desc')
-    advanced_search = substance or forme or laboratoire or dosage or sort_option != 'date_desc'
+    # Tri par défaut toujours alphabétique (A-Z)
+    sort_option = request.args.get('sort', 'name_asc')
+    advanced_search = substance or forme or laboratoire or dosage or sort_option != 'name_asc'
     
     # Get filter options
     available_filters = extract_filter_options()
@@ -677,6 +753,294 @@ def _format_date_fr(dt: Any) -> str:
     return _safe_str(dt) or "Non disponible"
 
 
+# ========== FONCTIONS V3 ==========
+
+def _extract_title_v3(market_doc: Dict[str, Any]) -> str:
+    """Extrait le titre depuis un document medicine_market (V3)"""
+    # Priorité au brand_title
+    if _safe_str(market_doc.get("brand_title")):
+        return market_doc["brand_title"]
+    
+    # Sinon utiliser medicine_id comme fallback
+    if _safe_str(market_doc.get("medicine_id")):
+        return market_doc["medicine_id"]
+    
+    return f"Médicament {market_doc.get('_id')}"
+
+
+def _extract_update_date_v3(market_doc: Dict[str, Any]) -> str:
+    """Extrait la date de mise à jour depuis un document medicine_market (V3)"""
+    # Chercher updated_at au niveau du document
+    updated_at = market_doc.get("updated_at")
+    if updated_at:
+        return _format_date_fr(datetime.fromtimestamp(updated_at))
+    
+    # Sinon chercher dans rcp.metadata.update_date
+    rcp = market_doc.get("rcp") or {}
+    metadata = rcp.get("metadata") or {}
+    update_date = metadata.get("update_date")
+    if update_date:
+        return _safe_str(update_date) or "Non disponible"
+    
+    return "Non disponible"
+
+
+def _extract_source_url_v3(market_doc: Dict[str, Any]) -> Optional[str]:
+    """Extrait l'URL source depuis un document medicine_market (V3)"""
+    # Chercher dans source_urls (liste)
+    source_urls = market_doc.get("source_urls") or []
+    if source_urls and len(source_urls) > 0:
+        return source_urls[0]
+    
+    # Chercher dans rcp.metadata.url
+    rcp = market_doc.get("rcp") or {}
+    metadata = rcp.get("metadata") or {}
+    url = metadata.get("url")
+    if url:
+        return url
+    
+    return None
+
+
+def _extract_medicine_details_v3(market_doc: Dict[str, Any], medicine_doc: Dict[str, Any] = None) -> Dict[str, Any]:
+    """
+    Extrait les détails du médicament depuis medicine_market et medicines_v3 (V3)
+    Retourne: {forme, dosages, substances_actives, laboratoire}
+    """
+    # Données depuis medicine_market
+    forme = market_doc.get("form") or ""
+    strength = market_doc.get("strength") or ""
+    laboratory = market_doc.get("laboratory") or ""
+    
+    # Dosages: peut être une string ou dans rcp.metadata
+    dosages = []
+    if strength:
+        dosages.append(strength)
+    
+    rcp = market_doc.get("rcp") or {}
+    metadata = rcp.get("metadata") or {}
+    rcp_dosages = metadata.get("medicine_details", {}).get("dosages") or []
+    if rcp_dosages:
+        dosages.extend(rcp_dosages)
+    
+    # Dédupliquer
+    dosages = list(set(dosages)) if dosages else []
+    
+    # Substances actives: depuis medicine_doc.inns ou rcp.metadata
+    substances_actives = []
+    if medicine_doc:
+        inns = medicine_doc.get("inns") or []
+        substances_actives.extend(inns)
+    
+    rcp_substances = metadata.get("medicine_details", {}).get("substances_actives") or []
+    if rcp_substances:
+        substances_actives.extend(rcp_substances)
+    
+    # Dédupliquer
+    substances_actives = list(set(substances_actives)) if substances_actives else []
+    
+    return {
+        "forme": forme,
+        "dosages": dosages,
+        "substances_actives": substances_actives,
+        "laboratoire": laboratory,
+    }
+
+
+def _convert_v3_rcp_sections_to_legacy(rcp_sections: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Convertit les sections RCP v3 vers le format legacy attendu par medicine_details.html
+    Compatible avec la structure actuelle dans rcp.sections
+    """
+    def convert_subsections(subs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        out = []
+        for sub in subs or []:
+            if not isinstance(sub, dict):
+                continue
+
+            sub_title = _safe_str(sub.get("title")) or ""
+            sub_content = []
+            for c in sub.get("content", []) or []:
+                if isinstance(c, dict) and _safe_str(c.get("text")):
+                    sub_content.append({
+                        "text": c["text"],
+                        "formatting": c.get("formatting") or {}
+                    })
+                elif isinstance(c, str) and _safe_str(c):
+                    sub_content.append({
+                        "text": c,
+                        "formatting": {}
+                    })
+
+            out.append({
+                "title": sub_title,
+                "content": sub_content,
+                "subsections": convert_subsections(sub.get("subsections", []) or [])
+            })
+        return out
+
+    legacy_sections = []
+    for sec in rcp_sections or []:
+        if not isinstance(sec, dict):
+            continue
+
+        title = _safe_str(sec.get("title")) or ""
+        content = []
+
+        # Extraire le contenu
+        for item in sec.get("content", []) or []:
+            if isinstance(item, dict) and _safe_str(item.get("text")):
+                content.append({
+                    "text": item["text"],
+                    "formatting": item.get("formatting") or {}
+                })
+            elif isinstance(item, str) and _safe_str(item):
+                content.append({
+                    "text": item,
+                    "formatting": {}
+                })
+
+        subsections = convert_subsections(sec.get("subsections", []) or [])
+
+        legacy_sections.append({
+            "title": title,
+            "content": content,
+            "subsections": subsections,
+        })
+
+    return legacy_sections
+
+
+def _extract_theriaque_data(market_doc: Dict[str, Any]) -> Dict[str, Any]:
+    """Extrait les données Thériaque depuis medicine_market"""
+    theriaque = market_doc.get("theriaque") or {}
+    migrations = theriaque.get("migrations", {}).get("v2", [])
+    
+    if not migrations:
+        return None
+    
+    data = migrations[0]  # Premier élément de migration
+    
+    return {
+        "meta": data.get("meta") or {},
+        "interactions": data.get("interactions") or {},
+        "c_indic": data.get("c_indic") or {},  # Contre-indications
+        "indic": data.get("indic") or {},  # Indications
+    }
+
+
+def _extract_pubchem_data(substance_doc: Dict[str, Any]) -> Dict[str, Any]:
+    """Extrait les données PubChem depuis substances_v3"""
+    if not substance_doc:
+        return None
+    
+    pubchem = substance_doc.get("sources", {}).get("pubchem") or {}
+    if not pubchem:
+        return None
+    
+    summary = pubchem.get("summary") or {}
+    return {
+        "cid": pubchem.get("cid"),
+        "molecular_formula": summary.get("molecular_formula"),
+        "molecular_weight": summary.get("molecular_weight"),
+        "canonical_smiles": summary.get("canonical_smiles"),
+        "isomeric_smiles": summary.get("isomeric_smiles"),
+        "inchi": summary.get("inchi"),
+        "inchi_key": summary.get("inchi_key"),
+        "synonyms_top": pubchem.get("synonyms_top", [])[:10],  # Limiter à 10
+        "brand_like_names": pubchem.get("brand_like_names", [])[:5],
+    }
+
+
+def _extract_drugbank_data(substance_doc: Dict[str, Any]) -> Dict[str, Any]:
+    """Extrait les données DrugBank depuis substances_v3"""
+    if not substance_doc:
+        return None
+    
+    drugbank = substance_doc.get("sources", {}).get("drugbank") or {}
+    if not drugbank:
+        return None
+    
+    return {
+        "drugbank_id": drugbank.get("drugbank_id"),
+        "label": drugbank.get("label"),
+        "cas": drugbank.get("cas"),
+        "unii": drugbank.get("unii"),
+        "atc_codes": drugbank.get("atc_codes", []),
+        "synonyms": drugbank.get("synonyms", [])[:10],
+    }
+
+
+def _get_substance_data(medicine_doc: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Récupère les données de toutes les substances associées au médicament"""
+    if not medicine_doc:
+        return []
+    
+    substance_ref_ids = medicine_doc.get("substance_ref_ids", [])
+    substances_data = []
+    
+    for sub_ref in substance_ref_ids:
+        try:
+            sub_doc = substances_v3.find_one({"_id": sub_ref})
+            if sub_doc:
+                substance_info = {
+                    "label": sub_doc.get("label"),
+                    "label_normalized": sub_doc.get("label_normalized"),
+                    "pubchem": _extract_pubchem_data(sub_doc),
+                    "drugbank": _extract_drugbank_data(sub_doc),
+                }
+                substances_data.append(substance_info)
+        except Exception as e:
+            print(f"Erreur lors de la récupération de substance_ref: {e}")
+            continue
+    
+    return substances_data
+
+
+def to_medicine_view_v3(market_doc: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Convertit un document medicine_market (V3) vers le format attendu par medicine_details.html
+    Enrichit avec les données de medicines_v3, Thériaque, PubChem et DrugBank
+    """
+    view = dict(market_doc)
+    
+    # Récupérer le document medicine_v3 associé si disponible
+    medicine_doc = None
+    medicine_ref = market_doc.get("medicine_ref")
+    if medicine_ref:
+        try:
+            medicine_doc = medicines_v3.find_one({"_id": medicine_ref})
+        except Exception as e:
+            print(f"Erreur lors de la récupération de medicine_ref: {e}")
+    
+    # Extraire les informations principales
+    view["title"] = _extract_title_v3(market_doc)
+    view["update_date"] = _extract_update_date_v3(market_doc)
+    view["url"] = _extract_source_url_v3(market_doc)
+    view["medicine_details"] = _extract_medicine_details_v3(market_doc, medicine_doc)
+    
+    # Extraire les sections RCP
+    rcp = market_doc.get("rcp") or {}
+    rcp_sections = rcp.get("sections") or []
+    view["sections"] = _convert_v3_rcp_sections_to_legacy(rcp_sections)
+    
+    # Ajouter les données enrichies de medicine_v3
+    if medicine_doc:
+        view["medicine_v3"] = {
+            "inns": medicine_doc.get("inns") or [],
+            "countries": medicine_doc.get("countries") or [],
+            "substance_labels": medicine_doc.get("substance_labels") or [],
+        }
+    
+    # Extraire les données Thériaque
+    view["theriaque_data"] = _extract_theriaque_data(market_doc)
+    
+    # Extraire les données des substances (PubChem + DrugBank)
+    view["substances_data"] = _get_substance_data(medicine_doc)
+    
+    return view
+
+
 def _extract_title(doc: Dict[str, Any]) -> str:
     # v2
     drug = doc.get("drug") or {}
@@ -845,6 +1209,299 @@ def to_medicine_view(doc: Dict[str, Any]) -> Dict[str, Any]:
     return view
 
 
+def get_pharmgkb_data(medicine_name, substances_actives=None):
+    """
+    Récupère les données pharmacogénomiques depuis PharmGKB
+    
+    Args:
+        medicine_name: Nom du médicament
+        substances_actives: Liste des substances actives du médicament
+        
+    Returns:
+        dict: {
+            'drug_info': {...},  # Info du médicament PharmGKB
+            'relationships': [...],  # Relations pharmacogénomiques
+            'genes': [...],  # Liste des gènes associés
+        }
+    """
+    try:
+        pharmgkb_data = {
+            'drug_info': None,
+            'relationships': [],
+            'genes': []
+        }
+        
+        # Fonction pour nettoyer et extraire le nom principal
+        def clean_name(name):
+            """Nettoie un nom de médicament pour la recherche"""
+            if not name:
+                return ""
+            # Retirer les dosages, formes, etc.
+            name = name.lower().strip()
+            # Retirer les chiffres et mg, g, etc.
+            import re
+            name = re.sub(r'\d+\s*(mg|g|ml|%|ui|µg)\b', '', name)
+            # Retirer les formes pharmaceutiques courantes
+            name = re.sub(r'\b(comprimé|gélule|solution|injectable|poudre|suspension|sirop|crème|pommade|gel)\b', '', name)
+            # Retirer les formes chimiques (monohydrate, chlorhydrate, etc.)
+            name = re.sub(r'\b(monohydrate|dihydrate|trihydrate|chlorhydrate|sulfate|phosphate|citrate|succinate|fumarate|malate|tartrate|lactate|gluconate|carbonate|nitrate)\b', '', name)
+            # Retirer les virgules et "pour"
+            name = re.sub(r'[,\-]', ' ', name)
+            name = re.sub(r'\bpour\b', ' ', name)
+            # Nettoyer les espaces multiples
+            name = ' '.join(name.split())
+            return name.strip()
+        
+        # Collecter tous les noms à rechercher
+        search_names = set()
+        
+        # Ajouter le nom du médicament (nettoyé et original)
+        cleaned_medicine_name = clean_name(medicine_name)
+        if cleaned_medicine_name:
+            search_names.add(cleaned_medicine_name)
+            # Ajouter aussi juste le premier mot (nom commercial souvent)
+            first_word = cleaned_medicine_name.split()[0] if cleaned_medicine_name.split() else ""
+            if first_word and len(first_word) > 3:
+                search_names.add(first_word)
+        
+        # Ajouter les substances actives (PRIORITÉ)
+        if substances_actives:
+            for substance in substances_actives:
+                if isinstance(substance, dict):
+                    sub_name = substance.get('nom', '').lower().strip()
+                elif isinstance(substance, str):
+                    sub_name = substance.lower().strip()
+                else:
+                    continue
+                
+                if sub_name and len(sub_name) > 2:
+                    search_names.add(sub_name)
+                    # Nettoyer aussi la substance
+                    cleaned_sub = clean_name(sub_name)
+                    if cleaned_sub and cleaned_sub != sub_name:
+                        search_names.add(cleaned_sub)
+        
+        print(f"🔍 Recherche PharmGKB pour: {list(search_names)}")
+        
+        # Chercher le médicament dans pharmgkb_drugs
+        # Prioriser les substances actives si présentes
+        search_order = sorted(search_names, key=lambda x: (
+            # Les substances actives en premier (généralement sans espaces/tirets)
+            ' ' in x or '-' in x,
+            # Les plus longs noms ensuite
+            -len(x)
+        ))
+        
+        for name in search_order:
+            if not name or len(name) < 3:
+                continue
+                
+            # Essayer correspondance exacte
+            drug = db.pharmgkb_drugs.find_one({'name': {'$regex': f'^{re.escape(name)}$', '$options': 'i'}})
+            
+            if not drug:
+                # Essayer correspondance partielle sur le nom
+                drug = db.pharmgkb_drugs.find_one({'name': {'$regex': re.escape(name), '$options': 'i'}})
+            
+            if not drug:
+                # Chercher dans les synonymes
+                drug = db.pharmgkb_drugs.find_one({'synonyms': {'$regex': re.escape(name), '$options': 'i'}})
+            
+            if not drug:
+                # Essayer aussi via drug_name dans relationships directement
+                rel = db.pharmgkb_relationships.find_one({'drug_name': {'$regex': f'^{re.escape(name)}$', '$options': 'i'}})
+                if rel:
+                    # Trouver le drug correspondant
+                    drug = db.pharmgkb_drugs.find_one({'pharmgkb_id': rel.get('pharmgkb_drug_id')})
+            
+            if drug:
+                print(f"✅ Trouvé dans PharmGKB: {drug.get('name')} (ID: {drug.get('pharmgkb_id')})")
+                pharmgkb_data['drug_info'] = drug
+                
+                # Récupérer les relations pharmacogénomiques
+                relationships = list(db.pharmgkb_relationships.find({
+                    'pharmgkb_drug_id': drug.get('pharmgkb_id')
+                }))
+                
+                if relationships:
+                    pharmgkb_data['relationships'] = relationships
+                    
+                    # Extraire les gènes uniques et les organiser
+                    genes_dict = {}
+                    for rel in relationships:
+                        gene = rel.get('gene_symbol')
+                        if gene:
+                            if gene not in genes_dict:
+                                genes_dict[gene] = {
+                                    'symbol': gene,
+                                    'associations': [],
+                                    'pk_count': 0,
+                                    'pd_count': 0
+                                }
+                            
+                            genes_dict[gene]['associations'].append({
+                                'association': rel.get('association'),
+                                'evidence': rel.get('evidence'),
+                                'pk': rel.get('pk'),
+                                'pd': rel.get('pd'),
+                                'pmids': rel.get('pmids', [])
+                            })
+                            
+                            if rel.get('pk'):
+                                genes_dict[gene]['pk_count'] += 1
+                            if rel.get('pd'):
+                                genes_dict[gene]['pd_count'] += 1
+                    
+                    pharmgkb_data['genes'] = list(genes_dict.values())
+                    print(f"✅ {len(pharmgkb_data['genes'])} gènes trouvés")
+                
+                break  # On a trouvé, pas besoin de chercher plus
+        
+        if not pharmgkb_data['drug_info']:
+            print(f"ℹ️  Aucune donnée PharmGKB trouvée pour: {medicine_name}")
+        
+        return pharmgkb_data
+        
+    except Exception as e:
+        print(f"⚠️  Erreur lors de la récupération des données PharmGKB: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'drug_info': None, 'relationships': [], 'genes': []}
+
+
+def get_drugbank_chunks(substances_actives):
+    """
+    Récupère les chunks DrugBank pour les substances actives
+    
+    Args:
+        substances_actives: Liste des substances actives du médicament
+        
+    Returns:
+        dict: {
+            'interactions': [...],  # Interactions médicamenteuses (pour pharmaciens!)
+            'targets': [...],  # Cibles thérapeutiques (mécanisme d'action)
+            'enzymes': [...],  # Métabolisme enzymatique (CYP450 crucial!)
+            'pathways': [...],  # Voies métaboliques
+            'transporters': [...],  # Transporteurs membranaires
+            'carriers': [...],  # Protéines de transport
+        }
+    """
+    try:
+        drugbank_data = {
+            'interactions': [],
+            'targets': [],
+            'enzymes': [],
+            'pathways': [],
+            'transporters': [],
+            'carriers': []
+        }
+        
+        if not substances_actives:
+            return drugbank_data
+        
+        # Récupérer les drugbank_ids des substances
+        drugbank_ids = set()
+        
+        for substance_name in substances_actives:
+            # Chercher la substance dans substances_v3
+            substance = substances_v3.find_one({
+                '$or': [
+                    {'label_normalized': substance_name.upper()},
+                    {'label': {'$regex': f'^{re.escape(substance_name)}', '$options': 'i'}}
+                ]
+            })
+            
+            if substance:
+                drugbank_id = substance.get('sources', {}).get('drugbank', {}).get('drugbank_id')
+                if drugbank_id:
+                    drugbank_ids.add(drugbank_id)
+                    print(f"🔍 DrugBank ID trouvé pour {substance_name}: {drugbank_id}")
+        
+        if not drugbank_ids:
+            print(f"ℹ️  Aucun DrugBank ID trouvé pour les substances")
+            return drugbank_data
+        
+        # Récupérer les chunks pour chaque drugbank_id
+        for drugbank_id in drugbank_ids:
+            # Interactions médicamenteuses (CRUCIAL pour pharmaciens!)
+            interactions_chunk = db.drugbank_raw_chunks.find_one({
+                'drugbank_id': drugbank_id,
+                'kind': 'drug-interactions'
+            })
+            if interactions_chunk and interactions_chunk.get('data'):
+                data = interactions_chunk['data']
+                if isinstance(data, list):
+                    # Limiter à 20 interactions les plus importantes
+                    drugbank_data['interactions'].extend(data[:20])
+            
+            # Cibles thérapeutiques (mécanisme d'action)
+            targets_chunk = db.drugbank_raw_chunks.find_one({
+                'drugbank_id': drugbank_id,
+                'kind': 'targets'
+            })
+            if targets_chunk and targets_chunk.get('data'):
+                data = targets_chunk['data']
+                if isinstance(data, list):
+                    drugbank_data['targets'].extend(data)
+            
+            # Enzymes (métabolisme CYP450 - CRUCIAL!)
+            enzymes_chunk = db.drugbank_raw_chunks.find_one({
+                'drugbank_id': drugbank_id,
+                'kind': 'enzymes'
+            })
+            if enzymes_chunk and enzymes_chunk.get('data'):
+                data = enzymes_chunk['data']
+                if isinstance(data, list):
+                    drugbank_data['enzymes'].extend(data)
+            
+            # Voies métaboliques
+            pathways_chunk = db.drugbank_raw_chunks.find_one({
+                'drugbank_id': drugbank_id,
+                'kind': 'pathways'
+            })
+            if pathways_chunk and pathways_chunk.get('data'):
+                data = pathways_chunk['data']
+                if isinstance(data, list):
+                    drugbank_data['pathways'].extend(data)
+            
+            # Transporteurs
+            transporters_chunk = db.drugbank_raw_chunks.find_one({
+                'drugbank_id': drugbank_id,
+                'kind': 'transporters'
+            })
+            if transporters_chunk and transporters_chunk.get('data'):
+                data = transporters_chunk['data']
+                if isinstance(data, list):
+                    drugbank_data['transporters'].extend(data)
+            
+            # Carriers
+            carriers_chunk = db.drugbank_raw_chunks.find_one({
+                'drugbank_id': drugbank_id,
+                'kind': 'carriers'
+            })
+            if carriers_chunk and carriers_chunk.get('data'):
+                data = carriers_chunk['data']
+                if isinstance(data, list):
+                    drugbank_data['carriers'].extend(data)
+        
+        print(f"✅ DrugBank chunks récupérés: {len(drugbank_data['interactions'])} interactions, {len(drugbank_data['targets'])} cibles, {len(drugbank_data['enzymes'])} enzymes")
+        
+        return drugbank_data
+        
+    except Exception as e:
+        print(f"⚠️  Erreur lors de la récupération des chunks DrugBank: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            'interactions': [],
+            'targets': [],
+            'enzymes': [],
+            'pathways': [],
+            'transporters': [],
+            'carriers': []
+        }
+
+
 @app.route('/medicine/<id>')
 def medicine_details(id):
     """Route pour les détails d'un médicament spécifique (compatible schema v1/v2)"""
@@ -872,6 +1529,27 @@ def medicine_details(id):
                     existing_summary = stored_medicine['ai_summary']
             except Exception as e:
                 print(f"Error checking for cached summary: {e}")
+        
+        # Si pas de résumé en cache, lancer la génération en arrière-plan
+        if not existing_summary:
+            try:
+                from threading import Thread
+                def generate_summary_background():
+                    """Génère le résumé en arrière-plan"""
+                    try:
+                        print(f"🤖 Génération du résumé IA pour {medicine.get('name', id)}...")
+                        summary = get_or_generate_summary(medicine, db=db)
+                        print(f"✅ Résumé généré et sauvegardé pour {medicine.get('name', id)}")
+                    except Exception as e:
+                        print(f"❌ Erreur lors de la génération du résumé: {e}")
+                
+                # Lancer dans un thread séparé pour ne pas bloquer la page
+                thread = Thread(target=generate_summary_background)
+                thread.daemon = True
+                thread.start()
+                print(f"🚀 Génération du résumé lancée en arrière-plan")
+            except Exception as e:
+                print(f"Erreur lors du lancement de la génération en arrière-plan: {e}")
 
         medicine['ai_summary'] = existing_summary
 
@@ -911,6 +1589,58 @@ def medicine_details(id):
             except Exception as e:
                 print(f"Erreur lors de la récupération des données utilisateur: {e}")
                 comment['user'] = {'first_name': 'Utilisateur', 'last_name': ''}
+
+        # ✅ Récupérer les données pharmacogénomiques PharmGKB
+        pharmgkb_data = None
+        try:
+            # Extraire le nom du médicament et les substances actives
+            medicine_name = medicine.get('name', '')
+            substances_actives = []
+            
+            # Essayer plusieurs sources pour les substances actives
+            # 1. Depuis medicine_details (format v1)
+            if medicine.get('medicine_details'):
+                subs = medicine['medicine_details'].get('substances_actives', [])
+                if subs:
+                    substances_actives.extend(subs if isinstance(subs, list) else [subs])
+            
+            # 2. Depuis drug.active_substances (format v2)
+            if medicine.get('drug', {}).get('active_substances'):
+                subs = medicine['drug']['active_substances']
+                substances_actives.extend(subs if isinstance(subs, list) else [subs])
+            
+            # 3. Depuis le document brut original (avant transformation)
+            raw_doc = collection.find_one({'_id': ObjectId(id)})
+            if raw_doc:
+                if raw_doc.get('medicine_details', {}).get('substances_actives'):
+                    subs = raw_doc['medicine_details']['substances_actives']
+                    substances_actives.extend(subs if isinstance(subs, list) else [subs])
+                if raw_doc.get('drug', {}).get('active_substances'):
+                    subs = raw_doc['drug']['active_substances']
+                    substances_actives.extend(subs if isinstance(subs, list) else [subs])
+            
+            # Dédupliquer
+            substances_actives = list(set([s if isinstance(s, str) else s.get('nom', '') if isinstance(s, dict) else str(s) for s in substances_actives if s]))
+            
+            print(f"🔍 PharmGKB - Médicament: {medicine_name}")
+            print(f"🔍 PharmGKB - Substances actives trouvées: {substances_actives}")
+            
+            # Récupérer les données PharmGKB
+            if substances_actives or medicine_name:
+                pharmgkb_data = get_pharmgkb_data(medicine_name, substances_actives)
+                
+                # Afficher un message de débogage
+                if pharmgkb_data and pharmgkb_data.get('drug_info'):
+                    print(f"✅ Données PharmGKB trouvées pour {medicine_name}: {len(pharmgkb_data.get('genes', []))} gènes")
+                else:
+                    print(f"ℹ️  Aucune donnée PharmGKB trouvée pour {medicine_name}")
+            else:
+                print(f"⚠️  Aucune substance active trouvée pour {medicine_name}")
+        except Exception as e:
+            print(f"⚠️  Erreur lors de la récupération des données PharmGKB: {e}")
+            import traceback
+            traceback.print_exc()
+            pharmgkb_data = None
 
         # ✅ Normaliser content/subcontent pour l'affichage (crée html_content si absent)
         # Ici on suppose que medicine['sections'] est au format legacy:
@@ -985,12 +1715,434 @@ def medicine_details(id):
             medicine=medicine,
             medicine_json=medicine_json,
             is_favorite=is_favorite,
-            comments=comments
+            comments=comments,
+            pharmgkb_data=pharmgkb_data
         )
 
     except Exception as e:
         print(f"Erreur dans medicine_details: {e}")
         abort(404)
+
+
+@app.route('/pubchem-image/<int:cid>')
+def pubchem_image(cid):
+    """Servir les images 2D PubChem depuis data/pubchem_images/"""
+    from flask import send_from_directory
+    import os
+    
+    try:
+        # Le dossier data est monté dans /data dans le container Docker
+        # En local, il est dans ../data depuis frontend_backend
+        if os.path.exists('/data/pubchem_images'):
+            images_dir = '/data/pubchem_images'
+        else:
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            images_dir = os.path.join(base_dir, 'data', 'pubchem_images')
+        
+        # Nom du fichier
+        filename = f'cid_{cid}_2d.png'
+        
+        # Vérifier si le fichier existe
+        filepath = os.path.join(images_dir, filename)
+        if os.path.exists(filepath):
+            return send_from_directory(images_dir, filename, mimetype='image/png')
+        else:
+            # Retourner une image placeholder ou 404
+            abort(404)
+    except Exception as e:
+        print(f"Erreur lors du service de l'image PubChem CID {cid}: {e}")
+        abort(404)
+
+
+@app.route('/medicine-market/<id>')
+def medicine_market_details(id):
+    """Route pour les détails d'un médicament V3 depuis medicine_market"""
+    try:
+        # Rechercher dans medicine_market par _id (string compound key)
+        market_doc = medicine_market.find_one({'_id': id})
+        
+        if not market_doc:
+            # Fallback: chercher par market_key
+            market_doc = medicine_market.find_one({'market_key': id})
+        
+        if not market_doc:
+            # Fallback: chercher par CIS (pour compatibilité)
+            market_doc = medicine_market.find_one({'cis': id})
+        
+        if not market_doc:
+            abort(404)
+
+        # Convertir vers le format attendu par le template
+        medicine = to_medicine_view_v3(market_doc)
+        
+        # Nom utilisé ailleurs dans le front
+        medicine['name'] = medicine['title']
+
+        # Summary IA (cache) : ne pas bloquer si absent
+        existing_summary = None
+        if db is not None:
+            try:
+                stored_medicine = db.medicine_market.find_one(
+                    {"_id": market_doc['_id']},
+                    {"ai_summary": 1}
+                )
+                if stored_medicine and 'ai_summary' in stored_medicine:
+                    existing_summary = stored_medicine['ai_summary']
+            except Exception as e:
+                print(f"Error checking for cached summary: {e}")
+        
+        # Si pas de résumé en cache, lancer la génération en arrière-plan
+        if not existing_summary:
+            try:
+                from threading import Thread
+                def generate_summary_background():
+                    """Génère le résumé en arrière-plan"""
+                    try:
+                        print(f"🤖 Génération du résumé IA pour {medicine.get('name', market_doc['_id'])}...")
+                        # Utiliser medicine_market comme collection de sauvegarde
+                        summary = get_or_generate_summary(medicine, db=db)
+                        # Sauvegarder dans medicine_market
+                        db.medicine_market.update_one(
+                            {"_id": market_doc['_id']},
+                            {"$set": {"ai_summary": summary}}
+                        )
+                        print(f"✅ Résumé généré et sauvegardé pour {medicine.get('name', market_doc['_id'])}")
+                    except Exception as e:
+                        print(f"❌ Erreur lors de la génération du résumé: {e}")
+                
+                # Lancer dans un thread séparé pour ne pas bloquer la page
+                thread = Thread(target=generate_summary_background)
+                thread.daemon = True
+                thread.start()
+                print(f"🚀 Génération du résumé lancée en arrière-plan pour medicine-market")
+            except Exception as e:
+                print(f"Erreur lors du lancement de la génération en arrière-plan: {e}")
+
+        medicine['ai_summary'] = existing_summary
+
+        # Favoris + commentaires
+        is_favorite = False
+        comments = []
+        user_role = None
+
+        if 'user_id' in request.cookies:
+            from models import Interaction, Comment
+            user_id = request.cookies.get('user_id')
+            # Utiliser le _id du medicine_market pour les favoris
+            is_favorite = Interaction.is_favorite(user_id, str(market_doc['_id']))
+
+            user_role = request.cookies.get('role')
+            if user_role:
+                try:
+                    user_role = int(user_role)
+                except Exception:
+                    user_role = None
+
+            comments = Comment.get_for_medicine(str(market_doc['_id']), user_role)
+        else:
+            from models import Comment
+            comments = Comment.get_for_medicine(str(market_doc['_id']))
+
+        # Ajouter les infos utilisateur à chaque commentaire
+        for comment in comments:
+            try:
+                comment_user = User.get_by_id(comment['user_id'])
+                if comment_user:
+                    comment['user'] = {
+                        'first_name': comment_user.get('first_name', 'Utilisateur'),
+                        'last_name': comment_user.get('last_name', '')
+                    }
+                else:
+                    comment['user'] = {'first_name': 'Utilisateur', 'last_name': ''}
+            except Exception as e:
+                print(f"Erreur lors de la récupération des données utilisateur: {e}")
+                comment['user'] = {'first_name': 'Utilisateur', 'last_name': ''}
+
+        # Normaliser content pour l'affichage
+        if medicine.get('sections'):
+            for section in medicine['sections']:
+                if not isinstance(section, dict):
+                    continue
+
+                # Section content
+                if section.get('content'):
+                    new_content = []
+                    for item in section['content']:
+                        if isinstance(item, str) and item.strip():
+                            text = item
+                            html_text = text.replace('\n', '<br>')
+                            new_content.append({"text": text, "html_content": f"<p>{html_text}</p>"})
+                        elif isinstance(item, dict) and item.get('text'):
+                            if 'html_content' not in item:
+                                text = str(item['text'])
+                                html_text = text.replace('\n', '<br>')
+                                item['html_content'] = f"<p>{html_text}</p>"
+                            new_content.append(item)
+                    section['content'] = new_content
+
+                # Subsections content
+                if section.get('subsections'):
+                    for subsection in section['subsections']:
+                        if not isinstance(subsection, dict):
+                            continue
+                        if subsection.get('content'):
+                            new_sub_content = []
+                            for item in subsection['content']:
+                                if isinstance(item, str) and item.strip():
+                                    text = item
+                                    html_text = text.replace('\n', '<br>')
+                                    new_sub_content.append({"text": text, "html_content": f"<p>{html_text}</p>"})
+                                elif isinstance(item, dict) and item.get('text'):
+                                    if 'html_content' not in item:
+                                        text = str(item['text'])
+                                        html_text = text.replace('\n', '<br>')
+                                        item['html_content'] = f"<p>{html_text}</p>"
+                                    new_sub_content.append(item)
+                            subsection['content'] = new_sub_content
+
+                        # Sous-sous-sections
+                        if subsection.get('subsections'):
+                            for subsub in subsection['subsections']:
+                                if not isinstance(subsub, dict):
+                                    continue
+                                if subsub.get('content'):
+                                    new_subsub_content = []
+                                    for item in subsub['content']:
+                                        if isinstance(item, str) and item.strip():
+                                            text = item
+                                            html_text = text.replace('\n', '<br>')
+                                            new_subsub_content.append({"text": text, "html_content": f"<p>{html_text}</p>"})
+                                        elif isinstance(item, dict) and item.get('text'):
+                                            if 'html_content' not in item:
+                                                text = str(item['text'])
+                                                html_text = text.replace('\n', '<br>')
+                                                item['html_content'] = f"<p>{html_text}</p>"
+                                            new_subsub_content.append(item)
+                                    subsub['content'] = new_subsub_content
+
+        # ✅ Récupérer les données pharmacogénomiques PharmGKB
+        pharmgkb_data = None
+        try:
+            # Extraire le nom du médicament et les substances actives
+            medicine_name = medicine.get('name', '') or medicine.get('title', '')
+            substances_actives = []
+            
+            # 1. Depuis medicine_details (format V3)
+            if medicine.get('medicine_details'):
+                subs = medicine['medicine_details'].get('substances_actives', [])
+                if subs:
+                    substances_actives.extend(subs if isinstance(subs, list) else [subs])
+            
+            # 2. Depuis market_doc directement
+            if market_doc.get('rcp', {}).get('metadata', {}).get('medicine_details', {}).get('substances_actives'):
+                subs = market_doc['rcp']['metadata']['medicine_details']['substances_actives']
+                substances_actives.extend(subs if isinstance(subs, list) else [subs])
+            
+            # 3. Depuis medicine_doc.inns (substances actives V3)
+            if market_doc.get('medicine_id'):
+                try:
+                    # Essayer d'abord comme ObjectId (nouveau format)
+                    medicine_doc = medicines_v3.find_one({'_id': ObjectId(market_doc['medicine_id'])})
+                except:
+                    # Sinon comme string (ancien format)
+                    medicine_doc = medicines_v3.find_one({'_id': market_doc['medicine_id']})
+                
+                if medicine_doc:
+                    inns = medicine_doc.get('inns', [])
+                    if inns:
+                        substances_actives.extend(inns if isinstance(inns, list) else [inns])
+                    
+                    # Aussi depuis substance_labels
+                    substance_labels = medicine_doc.get('substance_labels', [])
+                    if substance_labels:
+                        substances_actives.extend(substance_labels if isinstance(substance_labels, list) else [substance_labels])
+            
+            # Dédupliquer et nettoyer
+            substances_actives = list(set([s.strip() if isinstance(s, str) else s.get('nom', '').strip() if isinstance(s, dict) else str(s).strip() for s in substances_actives if s]))
+            
+            print(f"🔍 PharmGKB (market) - Médicament: {medicine_name}")
+            print(f"🔍 PharmGKB (market) - Substances actives trouvées: {substances_actives}")
+            
+            # Récupérer les données PharmGKB
+            if substances_actives or medicine_name:
+                pharmgkb_data = get_pharmgkb_data(medicine_name, substances_actives)
+                
+                # Afficher un message de débogage
+                if pharmgkb_data and pharmgkb_data.get('drug_info'):
+                    print(f"✅ Données PharmGKB trouvées pour {medicine_name}: {len(pharmgkb_data.get('genes', []))} gènes")
+                else:
+                    print(f"ℹ️  Aucune donnée PharmGKB trouvée pour {medicine_name}")
+            else:
+                print(f"⚠️  Aucune substance active trouvée pour {medicine_name}")
+        except Exception as e:
+            print(f"⚠️  Erreur lors de la récupération des données PharmGKB: {e}")
+            import traceback
+            traceback.print_exc()
+            pharmgkb_data = None
+
+        # ✅ Récupérer les images 2D PubChem pour les substances actives
+        substance_images = []
+        try:
+            # Collecter les noms de substances actives depuis différentes sources
+            substance_names = set()
+            
+            def normalize_substance_name(name):
+                """Normalise le nom de substance en retirant les préfixes chimiques et normalisant"""
+                import re
+                if not name:
+                    return None
+                # Retirer les préfixes chimiques courants (17 β, 17 alpha, L-, D-, etc.)
+                # et normaliser en majuscules
+                cleaned = re.sub(r'^(17\s*[βα]?|L-|D-|DL-)\s*', '', name.strip(), flags=re.IGNORECASE)
+                # Retirer les astérisques et autres caractères spéciaux
+                cleaned = re.sub(r'[*]', '', cleaned)
+                # Retirer les espaces multiples
+                cleaned = re.sub(r'\s+', ' ', cleaned)
+                return cleaned.strip().upper()
+            
+            # 1. Depuis medicine_details (format V3)
+            if medicine.get('medicine_details'):
+                subs = medicine['medicine_details'].get('substances_actives', [])
+                if subs:
+                    for sub in (subs if isinstance(subs, list) else [subs]):
+                        if isinstance(sub, str):
+                            normalized = normalize_substance_name(sub)
+                            if normalized:
+                                substance_names.add(normalized)
+                        elif isinstance(sub, dict) and sub.get('nom'):
+                            normalized = normalize_substance_name(sub['nom'])
+                            if normalized:
+                                substance_names.add(normalized)
+            
+            # 2. Depuis market_doc.rcp.metadata
+            if market_doc.get('rcp', {}).get('metadata', {}).get('medicine_details', {}).get('substances_actives'):
+                subs = market_doc['rcp']['metadata']['medicine_details']['substances_actives']
+                for sub in (subs if isinstance(subs, list) else [subs]):
+                    if isinstance(sub, str):
+                        normalized = normalize_substance_name(sub)
+                        if normalized:
+                            substance_names.add(normalized)
+                    elif isinstance(sub, dict) and sub.get('nom'):
+                        normalized = normalize_substance_name(sub['nom'])
+                        if normalized:
+                            substance_names.add(normalized)
+            
+            # 3. Depuis medicine_doc.inns (substances actives V3)
+            if market_doc.get('medicine_id'):
+                try:
+                    medicine_doc = medicines_v3.find_one({'_id': ObjectId(market_doc['medicine_id'])})
+                except:
+                    medicine_doc = medicines_v3.find_one({'_id': market_doc['medicine_id']})
+                
+                if medicine_doc:
+                    inns = medicine_doc.get('inns', [])
+                    for inn in (inns if isinstance(inns, list) else [inns]):
+                        if isinstance(inn, str):
+                            normalized = normalize_substance_name(inn)
+                            if normalized:
+                                substance_names.add(normalized)
+            
+            print(f"🔍 Substances normalisées: {substance_names}")
+            
+            # Maintenant chercher les substances dans substances_v3 par leur label_normalized
+            if substance_names:
+                import os
+                # Le dossier data est monté dans /data dans le container Docker
+                # En local, il est dans ../data depuis frontend_backend
+                if os.path.exists('/data/pubchem_images'):
+                    pubchem_images_dir = '/data/pubchem_images'
+                else:
+                    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    pubchem_images_dir = os.path.join(base_dir, 'data', 'pubchem_images')
+                
+                for substance_name in substance_names:
+                    # Chercher la substance par label_normalized (recherche exacte)
+                    substance = substances_v3.find_one({
+                        'label_normalized': substance_name
+                    })
+                    
+                    # Si pas trouvé, essayer une recherche plus souple (regex)
+                    if not substance:
+                        substance = substances_v3.find_one({
+                            'label_normalized': {'$regex': f'^{re.escape(substance_name)}', '$options': 'i'}
+                        })
+                    
+                    if substance:
+                        cid = substance.get('sources', {}).get('pubchem', {}).get('cid')
+                        label = substance.get('label', substance_name.title())
+                        
+                        if cid:
+                            # Vérifier si l'image existe
+                            image_path = os.path.join(pubchem_images_dir, f'cid_{cid}_2d.png')
+                            
+                            if os.path.exists(image_path):
+                                substance_images.append({
+                                    'cid': cid,
+                                    'label': label,
+                                    'url': url_for('pubchem_image', cid=cid)
+                                })
+                                print(f"✅ Image 2D trouvée pour {label} (CID: {cid})")
+                            else:
+                                print(f"❌ Image manquante pour {label} (CID: {cid})")
+                        else:
+                            print(f"⚠️ Pas de CID pour {label}")
+                    else:
+                        print(f"❌ Substance non trouvée: {substance_name}")
+                
+                print(f"📊 Total images 2D trouvées: {len(substance_images)} sur {len(substance_names)} substances")
+        except Exception as e:
+            print(f"Erreur lors de la récupération des images PubChem: {e}")
+            import traceback
+            traceback.print_exc()
+
+        # ✅ Récupérer les chunks DrugBank (interactions, métabolisme, etc.)
+        drugbank_chunks = None
+        try:
+            # Collecter les noms de substances actives
+            substances_list = []
+            if substance_names:
+                substances_list = list(substance_names)
+            
+            if substances_list:
+                drugbank_chunks = get_drugbank_chunks(substances_list)
+                
+                if drugbank_chunks and any([
+                    drugbank_chunks.get('interactions'),
+                    drugbank_chunks.get('targets'),
+                    drugbank_chunks.get('enzymes'),
+                    drugbank_chunks.get('pathways')
+                ]):
+                    print(f"✅ Chunks DrugBank récupérés pour {medicine.get('name', market_doc['_id'])}")
+                else:
+                    print(f"ℹ️  Aucun chunk DrugBank trouvé pour {medicine.get('name', market_doc['_id'])}")
+            else:
+                print(f"⚠️  Aucune substance active pour récupérer DrugBank chunks")
+        except Exception as e:
+            print(f"⚠️  Erreur lors de la récupération des chunks DrugBank: {e}")
+            import traceback
+            traceback.print_exc()
+            drugbank_chunks = None
+
+        # JSON brut (pour "Afficher JSON")
+        medicine_json = json.dumps(bson_to_json(medicine), indent=2, ensure_ascii=False)
+
+        return render_template(
+            'medicine_details.html',
+            medicine=medicine,
+            medicine_json=medicine_json,
+            is_favorite=is_favorite,
+            comments=comments,
+            pharmgkb_data=pharmgkb_data,
+            substance_images=substance_images,
+            drugbank_chunks=drugbank_chunks
+        )
+
+    except Exception as e:
+        print(f"Erreur dans medicine_market_details: {e}")
+        import traceback
+        traceback.print_exc()
+        abort(404)
+
 
 @app.route('/raw/<id>')
 def raw_medicine(id):
@@ -1024,132 +2176,414 @@ def debug_info():
                           fields=sorted(list(fields)),
                           available_filters=available_filters)
 
-@app.route('/api/search-results')
+@app.route("/api/search-results")
 def search_results_api():
+    """
+    Recherche V3 (niveau medicine_market), avec filtres + pagination.
+    Retour JSON compatible classic_search.html :
+    - results[] contient id/title/update_date/medicine_details...
+    """
     try:
-        search_query = request.args.get('search', '')
-        page = int(request.args.get('page', 1))
-        per_page = int(request.args.get('per_page', 10))
-        substance = request.args.get('substance', '')
-        forme = request.args.get('forme', '')
-        laboratoire = request.args.get('laboratoire', '')
-        dosage = request.args.get('dosage', '')
-        sort_option = request.args.get('sort', 'date_desc')
+        search_query = (request.args.get("search", "") or "").strip()
 
-        query = {}
-        pipeline_filters = []
+        page = int(request.args.get("page", 1))
+        per_page = int(request.args.get("per_page", 10))
 
-        # Construction de la requête de recherche
+        # filtres du front (noms existants)
+        substance = (request.args.get("substance", "") or "").strip()
+        forme = (request.args.get("forme", "") or "").strip()
+        laboratoire = (request.args.get("laboratoire", "") or "").strip()
+        dosage = (request.args.get("dosage", "") or "").strip()
+
+        # Filtre par sources de données (nouveau)
+        sources = request.args.getlist("sources")  # Array: ['ANSM', 'PharmGKB', etc.]
+        
+        # optionnel (si tu ajoutes un filtre pays plus tard)
+        country = (request.args.get("country", "") or "").strip()
+
+        # Tri par défaut alphabétique (A-Z)
+        sort_option = (request.args.get("sort", "name_asc") or "name_asc").strip()
+
+        if page < 1:
+            page = 1
+        if per_page < 1:
+            per_page = 10
+        if per_page > 100:
+            per_page = 100
+
+        match_filters = []
+
+        # -----------------------------
+        # (A) Recherche libre
+        # -----------------------------
         if search_query:
-            search_regex = {'$regex': search_query, '$options': 'i'}
+            rgx = {"$regex": search_query, "$options": "i"}
 
-            pipeline_filters.append({'$or': [
-                # --- v2 (nouveau schéma)
-                {'drug.name': search_regex},
-                {'drug.full_title': search_regex},
-                {'drug.active_substances': search_regex},
-                {'rcp.search_text': search_regex},
-                {'rcp.sections.title': search_regex},
-                {'rcp.sections.blocks.text': search_regex},
-                {'rcp.sections.subsections.title': search_regex},
-                {'rcp.sections.subsections.content.text': search_regex},
+            # match direct côté market
+            market_or = [
+                {"brand_title": rgx},
+                {"cis": rgx},
+                {"laboratory": rgx},
+                {"form": rgx},
+                {"strength": rgx},
+                {"country": rgx},
+                {"medicine_id": rgx},
+            ]
 
-                # --- v1 (ancien schéma)
-                {'title': search_regex},
-                {'medicine_details.substances_actives': search_regex},
-                {'sections.content': search_regex},
-                {'sections.subsections.content': search_regex},
-                {'sections.subsections.subsections.content': search_regex},
-            ]})
+            # match côté medicines_v3 -> medicine_ref
+            med_ids_from_meds = list(
+                medicines_v3.find(
+                    {"$or": [{"medicine_key": rgx}, {"inns": rgx}, {"substance_labels": rgx}]},
+                    {"_id": 1},
+                ).limit(3000)
+            )
+            med_ids_from_meds = [d["_id"] for d in med_ids_from_meds]
+
+            # match côté substances_v3 -> medicines_v3 -> market
+            sub_ids = list(
+                substances_v3.find(
+                    {"$or": [{"label": rgx}, {"label_normalized": rgx}]},
+                    {"_id": 1},
+                ).limit(1500)
+            )
+            sub_ids = [d["_id"] for d in sub_ids]
+
+            med_ids_from_subs = []
+            if sub_ids:
+                med_ids_from_subs_docs = list(
+                    medicines_v3.find(
+                        {"substance_ref_ids": {"$in": sub_ids}},
+                        {"_id": 1},
+                    ).limit(5000)
+                )
+                med_ids_from_subs = [d["_id"] for d in med_ids_from_subs_docs]
+
+            med_ids_union = list({*med_ids_from_meds, *med_ids_from_subs})
+
+            # combine
+            or_all = [{"$or": market_or}]
+            if med_ids_union:
+                or_all.append({"medicine_ref": {"$in": med_ids_union}})
+
+            match_filters.append({"$or": or_all})
+
+        # -----------------------------
+        # (B) Filtre Substance (select)
+        # -----------------------------
         if substance:
-            pipeline_filters.append({'$or': [
-                {'drug.active_substances': {'$regex': substance, '$options': 'i'}},
-                {'medicine_details.substances_actives': {'$regex': substance, '$options': 'i'}},
-            ]})
+            rgx_sub = {"$regex": substance, "$options": "i"}
+            sub_ids = list(
+                substances_v3.find(
+                    {"$or": [{"label": rgx_sub}, {"label_normalized": rgx_sub}]},
+                    {"_id": 1},
+                ).limit(1500)
+            )
+            sub_ids = [d["_id"] for d in sub_ids]
 
+            if not sub_ids:
+                return jsonify({"results": [], "has_more": False, "total_results": 0, "total_pages": 0})
+
+            med_ids = list(
+                medicines_v3.find(
+                    {"substance_ref_ids": {"$in": sub_ids}},
+                    {"_id": 1},
+                ).limit(8000)
+            )
+            med_ids = [d["_id"] for d in med_ids]
+
+            if not med_ids:
+                return jsonify({"results": [], "has_more": False, "total_results": 0, "total_pages": 0})
+
+            match_filters.append({"medicine_ref": {"$in": med_ids}})
+
+        # -----------------------------
+        # (C) Filtres market
+        # -----------------------------
         if forme:
-            pipeline_filters.append({'$or': [
-                {'drug.form': {'$regex': forme, '$options': 'i'}},
-                {'medicine_details.forme': {'$regex': forme, '$options': 'i'}},
-            ]})
+            match_filters.append({"form": {"$regex": forme, "$options": "i"}})
 
         if laboratoire:
-            pipeline_filters.append({'$or': [
-                {'drug.laboratory': {'$regex': laboratoire, '$options': 'i'}},
-                {'medicine_details.laboratoire': {'$regex': laboratoire, '$options': 'i'}},
-            ]})
+            match_filters.append({"laboratory": {"$regex": laboratoire, "$options": "i"}})
 
         if dosage:
-            pipeline_filters.append({'$or': [
-                {'drug.strengths': {'$regex': dosage, '$options': 'i'}},
-                {'medicine_details.dosages': {'$regex': dosage, '$options': 'i'}},
-            ]})
+            match_filters.append({"strength": {"$regex": dosage, "$options": "i"}})
 
-        # Combiner les filtres avec $and
-        if pipeline_filters:
-            query['$and'] = pipeline_filters
+        if country:
+            match_filters.append({"country": {"$regex": f"^{country}$", "$options": "i"}})
+        
+        # -----------------------------
+        # (D) Filtre par sources de données
+        # -----------------------------
+        if sources and len(sources) > 0:
+            # Filtrer les médocs qui ont AU MOINS une des sources sélectionnées
+            match_filters.append({"data_sources": {"$in": sources}})
+        query = {"$and": match_filters} if match_filters else {}
 
-        # Calculer le nombre de documents correspondant à la requête
-        total_results = collection.count_documents(query)
+        # -----------------------------
+        # Comptage + pagination
+        # -----------------------------
+        total_results = medicine_market.count_documents(query)
 
-        # Gestion du tri
-        if sort_option == 'relevance' and search_query:
-            # Calculer le score de pertinence pour chaque médicament
-            medicines = list(collection.find(query).skip((page - 1) * per_page).limit(per_page))
-            for medicine in medicines:
-                medicine['relevance_score'] = calculate_relevance_score(medicine, search_query)
-            # Trier les médicaments par score de pertinence
-            medicines = sorted(medicines, key=lambda x: x['relevance_score'], reverse=True)
-        elif sort_option.startswith('name'):
-            # Tri par nom
-            sort_field = 'title'
-            sort_direction = 1 if sort_option == 'name_asc' else -1
-            medicines = list(collection.find(query).sort([(sort_field, sort_direction)]).skip((page - 1) * per_page).limit(per_page))
-        else:
-            # Tri par date (par défaut)
-            sort_direction = -1 if sort_option == 'date_desc' else 1
-            medicines = list(collection.find(query).skip((page - 1) * per_page).limit(per_page))
-            medicines = sort_medicines_by_date(medicines, sort_direction)
-
-        # Préparer les résultats formatés
-        formatted_results = []
-        for medicine in medicines:
-            # Calculer le score de pertinence si la recherche est effectuée
+        # tri avec priorités: correspondance exacte, FR + RCP/ANSM, puis alphabétique
+        if sort_option == "name_asc":
+            # Système de priorité multi-niveaux avec correspondance recherche
+            add_fields = {
+                "is_french": {"$eq": ["$country", "FR"]},
+                "has_rcp": {
+                    "$or": [
+                        {"$gt": [{"$size": {"$ifNull": [{"$objectToArray": "$rcp"}, []]}}, 0]},
+                        {"$regexMatch": {"input": {"$ifNull": [{"$arrayElemAt": ["$source_urls", 0]}, ""]}, "regex": "base-donnees-publique.medicaments.gouv.fr", "options": "i"}}
+                    ]
+                },
+                "starts_with_letter": {"$regexMatch": {"input": "$brand_title", "regex": "^[A-Za-zÀ-ÿ]"}},
+                # Calcul de la priorité combinée
+                "country_priority": {
+                    "$switch": {
+                        "branches": [
+                            # Priorité 1: FR + RCP
+                            {"case": {"$and": [{"$eq": ["$country", "FR"]}, {"$or": [{"$gt": [{"$size": {"$ifNull": [{"$objectToArray": "$rcp"}, []]}}, 0]}, {"$regexMatch": {"input": {"$ifNull": [{"$arrayElemAt": ["$source_urls", 0]}, ""]}, "regex": "base-donnees-publique.medicaments.gouv.fr", "options": "i"}}]}]}, "then": 1},
+                            # Priorité 2: FR sans RCP
+                            {"case": {"$eq": ["$country", "FR"]}, "then": 2},
+                            # Priorité 3: Autres pays avec RCP
+                            {"case": {"$or": [{"$gt": [{"$size": {"$ifNull": [{"$objectToArray": "$rcp"}, []]}}, 0]}, {"$regexMatch": {"input": {"$ifNull": [{"$arrayElemAt": ["$source_urls", 0]}, ""]}, "regex": "base-donnees-publique.medicaments.gouv.fr", "options": "i"}}]}, "then": 3}
+                        ],
+                        # Priorité 4: Autres
+                        "default": 4
+                    }
+                },
+                "letter_priority": {
+                    "$cond": {
+                        "if": {"$regexMatch": {"input": "$brand_title", "regex": "^[A-Za-zÀ-ÿ]"}},
+                        "then": 0,  # Lettres en premier
+                        "else": 1   # Caractères spéciaux après
+                    }
+                }
+            }
+            
+            # Si une recherche est active, ajouter la priorité de correspondance
             if search_query:
-                relevance_score = calculate_relevance_score(medicine, search_query)
-                medicine['search_matches'] = find_search_term_locations(medicine, search_query)
+                # Priorité de correspondance: 0 = commence par le terme, 1 = contient le terme
+                add_fields["match_priority"] = {
+                    "$cond": {
+                        "if": {"$regexMatch": {"input": "$brand_title", "regex": f"^{search_query}", "options": "i"}},
+                        "then": 0,  # Commence par le terme recherché
+                        "else": 1   # Contient le terme recherché
+                    }
+                }
+                sort_spec = {"match_priority": 1, "country_priority": 1, "letter_priority": 1, "brand_title": 1}
             else:
-                relevance_score = 0
-                medicine['search_matches'] = []
-            formatted_results.append({
-                'id': str(medicine['_id']),
-                'title': get_display_title(medicine),
-                'update_date': get_update_date(medicine),
+                sort_spec = {"country_priority": 1, "letter_priority": 1, "brand_title": 1}
+            
+            pipeline = [
+                {"$match": query},
+                {"$addFields": add_fields},
+                {"$sort": sort_spec},
+                {"$skip": (page - 1) * per_page},
+                {"$limit": per_page}
+            ]
+            market_docs = list(medicine_market.aggregate(pipeline))
+        elif sort_option == "name_desc":
+            # Tri descendant avec priorités et correspondance recherche
+            add_fields = {
+                "country_priority": {
+                    "$switch": {
+                        "branches": [
+                            {"case": {"$and": [{"$eq": ["$country", "FR"]}, {"$or": [{"$gt": [{"$size": {"$ifNull": [{"$objectToArray": "$rcp"}, []]}}, 0]}, {"$regexMatch": {"input": {"$ifNull": [{"$arrayElemAt": ["$source_urls", 0]}, ""]}, "regex": "base-donnees-publique.medicaments.gouv.fr", "options": "i"}}]}]}, "then": 1},
+                            {"case": {"$eq": ["$country", "FR"]}, "then": 2},
+                            {"case": {"$or": [{"$gt": [{"$size": {"$ifNull": [{"$objectToArray": "$rcp"}, []]}}, 0]}, {"$regexMatch": {"input": {"$ifNull": [{"$arrayElemAt": ["$source_urls", 0]}, ""]}, "regex": "base-donnees-publique.medicaments.gouv.fr", "options": "i"}}]}, "then": 3}
+                        ],
+                        "default": 4
+                    }
+                },
+                "letter_priority": {
+                    "$cond": {
+                        "if": {"$regexMatch": {"input": "$brand_title", "regex": "^[A-Za-zÀ-ÿ]"}},
+                        "then": 0,
+                        "else": 1
+                    }
+                }
+            }
+            
+            # Si une recherche est active, ajouter la priorité de correspondance
+            if search_query:
+                add_fields["match_priority"] = {
+                    "$cond": {
+                        "if": {"$regexMatch": {"input": "$brand_title", "regex": f"^{search_query}", "options": "i"}},
+                        "then": 0,  # Commence par le terme recherché
+                        "else": 1   # Contient le terme recherché
+                    }
+                }
+                sort_spec = {"match_priority": 1, "country_priority": 1, "letter_priority": 1, "brand_title": -1}
+            else:
+                sort_spec = {"country_priority": 1, "letter_priority": 1, "brand_title": -1}
+            
+            pipeline = [
+                {"$match": query},
+                {"$addFields": add_fields},
+                {"$sort": sort_spec},
+                {"$skip": (page - 1) * per_page},
+                {"$limit": per_page}
+            ]
+            market_docs = list(medicine_market.aggregate(pipeline))
+        else:
+            # Tri par date (pas besoin d'aggregation)
+            if sort_option == "date_asc":
+                sort_spec = [("updated_at", 1)]
+            else:
+                sort_spec = [("updated_at", -1)]  # date_desc
+            
+            cursor = (
+                medicine_market.find(query)
+                .sort(sort_spec)
+                .skip((page - 1) * per_page)
+                .limit(per_page)
+            )
+            market_docs = list(cursor)
 
-                # garder les 2 pour le front (compat)
-                'drug': medicine.get('drug', {}),
-                'medicine_details': medicine.get('medicine_details', {}),
+        # -----------------------------
+        # hydrate medicines_v3 + substances_v3
+        # -----------------------------
+        med_ids = list({d.get("medicine_ref") for d in market_docs if d.get("medicine_ref")})
+        meds_map = {}
+        subs_map = {}
 
-                'relevance_score': relevance_score,
-                'match_count': medicine.get('match_count', 0),
-                'search_matches': medicine.get('search_matches', [])
+        if med_ids:
+            meds = list(medicines_v3.find({"_id": {"$in": med_ids}}))
+            meds_map = {m["_id"]: m for m in meds}
+
+            all_sub_ids = []
+            for m in meds:
+                for sid in (m.get("substance_ref_ids") or []):
+                    all_sub_ids.append(sid)
+            all_sub_ids = list({*all_sub_ids})
+
+            if all_sub_ids:
+                subs = list(substances_v3.find({"_id": {"$in": all_sub_ids}}))
+                subs_map = {s["_id"]: s for s in subs}
+
+        def ts_to_date(ts):
+            try:
+                return datetime.fromtimestamp(int(ts)).strftime("%Y-%m-%d")
+            except Exception:
+                return "Non disponible"
+
+        results = []
+        for mk in market_docs:
+            med = meds_map.get(mk.get("medicine_ref")) or {}
+
+            source_tags = set()
+
+            # BDPM/ANSM (RCP)
+            for u in (mk.get("source_urls") or []):
+                if isinstance(u, str) and "base-donnees-publique.medicaments.gouv.fr" in u.lower():
+                    source_tags.add("BDPM/ANSM")
+
+            # PubChem / DrugBank via substances
+            for sid in (med.get("substance_ref_ids") or []):
+                sdoc = subs_map.get(sid)
+                if not sdoc:
+                    continue
+                src = sdoc.get("sources") or {}
+                if "pubchem" in src:
+                    source_tags.add("PubChem")
+                if "drugbank" in src:
+                    source_tags.add("DrugBank")
+                if "openfda" in src:
+                    source_tags.add("OpenFDA")
+                if "theriaque" in src:
+                    source_tags.add("Thériaque")
+
+
+            # substances affichées
+            subs_labels = []
+
+            # 1) priorité aux labels déjà présents dans medicines_v3
+            raw_labels = med.get("substance_labels") or []
+            subs_labels = [x for x in raw_labels if isinstance(x, str) and x.strip()]
+
+            # 2) sinon via refs ObjectId vers substances_v3
+            if not subs_labels:
+                for sid in (med.get("substance_ref_ids") or []):
+                    sdoc = subs_map.get(sid)
+                    if sdoc and isinstance(sdoc.get("label"), str) and sdoc["label"].strip():
+                        subs_labels.append(sdoc["label"].strip())
+
+            # 3) dernière sécurité
+            if not subs_labels:
+                subs_labels = ["Non disponible"]
+
+
+            # sources (simple) depuis source_urls
+            srcs = []
+            for u in (mk.get("source_urls") or []):
+                if isinstance(u, str) and u.strip():
+                    srcs.append(u)
+            srcs = srcs[:3]
+
+            substances_clean = []
+            for x in subs_labels:
+                if not isinstance(x, str):
+                    continue
+                x = x.strip()
+                if x and x not in substances_clean:
+                    substances_clean.append(x)
+            results.append({
+                "id": mk.get("market_key") or mk.get("_id"),  # utiliser market_key pour éviter les / dans les URLs
+                "title": mk.get("brand_title") or mk.get("medicine_id") or str(mk.get("_id")),
+                "update_date": ts_to_date(mk.get("updated_at")),
+                "medicine_details": {
+                    "forme": mk.get("form") or "Non spécifié",
+                    "dosages": [mk.get("strength")] if mk.get("strength") else [],
+
+                    # ✅ compat front (classic_search.html lit "substances_actives")
+                    "substances_actives": substances_clean[:4] if substances_clean else ["Non disponible"],
+
+                    # (optionnel) tu peux garder aussi "substances" si tu veux
+                    "substances": substances_clean[:4] if substances_clean else ["Non disponible"],
+
+
+                    # nouveaux champs (pour UI plus riche)
+                    "substances_preview": substances_clean[:4] if substances_clean else ["Non disponible"],
+                    "substances_count": len(substances_clean),
+                    "substances_all": substances_clean[:50],
+
+                    "laboratoire": mk.get("laboratory") or "Non spécifié",
+                    "date": ts_to_date(mk.get("updated_at")),
+
+                    # legacy: source (le front affiche ça) -> tag si possible sinon URL
+                    "source": (sorted(source_tags)[0] if source_tags else ((mk.get("source_urls") or ["Non disponible"])[0])),
+
+                    # nouveaux champs sources
+                    "sources": sorted(source_tags) if source_tags else ["Non disponible"],
+                    "source_urls": (mk.get("source_urls") or [])[:3],
+
+                    "country": mk.get("country") or "Non spécifié",
+                    "cis": mk.get("cis") or "Non disponible",
+                },
+                "debug_substance_link": {
+                    "market_id": mk.get("_id"),
+                    "medicine_ref": str(mk.get("medicine_ref")) if mk.get("medicine_ref") else None,
+                    "medicine_has_substance_labels": bool(med.get("substance_labels")),
+                    "medicine_substance_ref_ids_count": len(med.get("substance_ref_ids") or []),
+                }
             })
 
 
-        # Calculer s'il y a plus de résultats
-        has_more = (page * per_page) < total_results
+
+        total_pages = (total_results + per_page - 1) // per_page
+        has_more = page < total_pages
 
         return jsonify({
-            'results': formatted_results,
-            'has_more': has_more,
-            'total_results': total_results,
-            'total_pages': (total_results + per_page - 1) // per_page
+            "results": results,
+            "has_more": has_more,
+            "total_results": total_results,
+            "total_pages": total_pages
         })
+
     except Exception as e:
-        import traceback
-        print("[API ERROR /api/search-results]", e)
-        traceback.print_exc()
-        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+        print(f"[api/search-results V3] erreur: {e}")
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/api/search-results-stream')
 def search_results_api_stream():
@@ -1312,38 +2746,65 @@ def toggle_favorite(medicine_id):
     except Exception as e:
         print(f"Erreur lors de la gestion des favoris: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
+    
+
+@app.route("/market/<path:market_id>")
+def market_details_v3(market_id):
+    """
+    Ancienne route - Redirige vers la nouvelle route moderne /medicine-market/
+    """
+    return redirect(url_for('medicine_market_details', id=market_id))
 
 @app.route('/api/medicine-summary/<id>')
 def get_medicine_summary(id):
     """API endpoint to get the AI summary of a medicine"""
     try:
-        # First check if we already have the summary in the database
+        print(f"🔍 API - Recherche du résumé pour ID: {id}")
+        
+        # Try to convert to ObjectId, or use as string if it fails
+        try:
+            medicine_id = ObjectId(id)
+            print(f"✅ ID converti en ObjectId: {medicine_id}")
+        except:
+            medicine_id = id
+            print(f"⚠️  ID utilisé comme string: {medicine_id}")
+        
+        # First check in medicines collection
         stored_medicine = db.medicines.find_one(
-            {'_id': ObjectId(id)},
+            {'_id': medicine_id},
             {'ai_summary': 1}
         )
         
+        # If not found, check in medicine_market collection
+        if not stored_medicine:
+            print(f"🔍 Recherche dans medicine_market...")
+            stored_medicine = db.medicine_market.find_one(
+                {'_id': medicine_id},
+                {'ai_summary': 1}
+            )
+        
+        print(f"📊 Médicament trouvé: {stored_medicine is not None}")
+        if stored_medicine:
+            print(f"📝 A un résumé: {'ai_summary' in stored_medicine and stored_medicine['ai_summary']}")
+        
         if stored_medicine and 'ai_summary' in stored_medicine and stored_medicine['ai_summary']:
+            print(f"✅ Résumé trouvé et retourné")
             return jsonify({
                 "success": True,
                 "summary": stored_medicine['ai_summary']
             })
         
-        # If not, generate a new summary
-        medicine = collection.find_one({'_id': ObjectId(id)})
-        if not medicine:
-            return jsonify({"success": False, "message": "Médicament non trouvé"}), 404
-        
-        # Generate summary but don't wait for it in the page load
-        summary = get_or_generate_summary(medicine, db=db)
-        
-        # Return the generated summary
+        # If not, the summary is being generated in the background
+        # Return empty for now, the JS will retry
+        print(f"⏳ Résumé en cours de génération...")
         return jsonify({
             "success": True,
-            "summary": summary
+            "summary": None
         })
     except Exception as e:
-        print(f"Error retrieving medicine summary: {e}")
+        print(f"❌ Error retrieving medicine summary: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/ai-search', methods=['GET', 'POST'])
@@ -1394,6 +2855,13 @@ def ai_search():
         total=total,
         initial_count=5
     )
+
+@app.route('/set_language/<language>')
+def set_language(language):
+    """Route pour changer la langue de l'interface"""
+    if language in app.config['LANGUAGES']:
+        session['language'] = language
+    return redirect(request.referrer or url_for('index'))
 
 if __name__ == '__main__':
     # La base est déjà initialisée plus haut avec init_db(app)

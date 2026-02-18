@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Medicine Details V3</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 2rem;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1rem;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #4CAF50;
+            color: white;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            margin-bottom: 30px;
+        }
+
+        .test-section {
+            margin-bottom: 30px;
+        }
+
+        .test-section h2 {
+            color: #333;
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .test-link {
+            display: block;
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #333;
+            transition: all 0.3s ease;
+        }
+
+        .test-link:hover {
+            background: #667eea;
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .test-link strong {
+            display: block;
+            margin-bottom: 5px;
+            color: #667eea;
+        }
+
+        .test-link:hover strong {
+            color: white;
+        }
+
+        .test-link code {
+            display: block;
+            background: #e9ecef;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            margin-top: 8px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .test-link:hover code {
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .info-box strong {
+            color: #2196F3;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-card .number {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Medicine Details V3</h1>
+        <p class="subtitle">Page de test pour la nouvelle architecture V3</p>
+        
+        <div class="status">✓ Logique implémentée et testée</div>
+
+        <div class="info-box">
+            <strong>📊 État de la base de données:</strong><br>
+            medicine_market: 262,884 documents | medicines_v3: 21,521 documents | substances_v3: 22,112 documents
+        </div>
+
+        <div class="test-section">
+            <h2>🔗 Tests par CIS (Simple)</h2>
+            
+            <a href="/medicine-market/61266250" class="test-link" target="_blank">
+                <strong>Test 1: A 313 Pommade</strong>
+                Vitamine A synthétique - Médicament basique avec RCP complet
+                <code>/medicine-market/61266250</code>
+            </a>
+
+            <a href="/medicine-market/64932843" class="test-link" target="_blank">
+                <strong>Test 2: Autre médicament</strong>
+                Test avec un autre CIS
+                <code>/medicine-market/64932843</code>
+            </a>
+        </div>
+
+        <div class="test-section">
+            <h2>🔗 Tests par Market Key</h2>
+            
+            <a href="/medicine-market/FR|BDPM|61266250" class="test-link" target="_blank">
+                <strong>Test 3: Via Market Key</strong>
+                Format: FR|BDPM|61266250
+                <code>/medicine-market/FR|BDPM|61266250</code>
+            </a>
+        </div>
+
+        <div class="test-section">
+            <h2>📋 Checklist de validation</h2>
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
+                <h3 style="margin-bottom: 15px; color: #667eea;">À vérifier sur la page:</h3>
+                <ul style="list-style-position: inside; line-height: 1.8;">
+                    <li>✓ Titre du médicament affiché correctement</li>
+                    <li>✓ Informations générales (forme, dosage, laboratoire)</li>
+                    <li>✓ Sections RCP (12 sections pour A 313)</li>
+                    <li>✓ Navigation sidebar fonctionnelle</li>
+                    <li>✓ Résumé IA (peut prendre quelques secondes)</li>
+                    <li>✓ Section Pharmacogénomique</li>
+                    <li>✓ Commentaires (si connecté)</li>
+                    <li>✓ Données techniques (JSON)</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="number">262K</div>
+                <div class="label">Médicaments commercialisés</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">21K</div>
+                <div class="label">Médicaments génériques</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">22K</div>
+                <div class="label">Substances chimiques</div>
+            </div>
+        </div>
+
+        <div style="margin-top: 30px; padding: 20px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+            <strong>⚠️ Note importante:</strong><br>
+            Une fois la logique validée, nous passerons à la modernisation du design et à l'affichage des RCP.
+        </div>
+    </div>
+</body>
+</html>
