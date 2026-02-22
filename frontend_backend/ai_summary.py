@@ -113,13 +113,20 @@ from pathlib import Path
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Load environment variables from .env file at project root
-# Look for .env in parent directory (project root)
+# Load environment variables from .env files
+# 1) Load from frontend_backend/.env (local)
+env_path_local = Path(__file__).parent / '.env'
+if env_path_local.exists():
+    load_dotenv(dotenv_path=env_path_local)
+
+# 2) Load from project root .env (override local if key exists there)
 env_path = Path(__file__).parent.parent / '.env'
-load_dotenv(dotenv_path=env_path)
+if env_path.exists():
+    load_dotenv(dotenv_path=env_path, override=True)
 
 # Get API key from environment variables
 MISTRAL_API_KEY = os.getenv('MISTRAL_API_KEY')
+logger.info(f"[ai_summary] MISTRAL_API_KEY loaded: {'YES' if MISTRAL_API_KEY else 'NO'}")
 
 # Try to import Mistral, but allow app to run without it
 try:

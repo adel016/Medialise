@@ -480,6 +480,70 @@
             </div>
         </section>
 
+        <!-- ✅ Badges Grossesse / Allaitement -->
+        {% if pregnancy_data and pregnancy_data.has_data %}
+        <section class="pregnancy-alerts-banner">
+            <div class="container">
+                <div class="pregnancy-badges">
+                    <div class="pregnancy-badge pregnancy-badge--{{ pregnancy_data.grossesse.level }}">
+                        <i class="fas fa-baby"></i>
+                        <div class="pregnancy-badge-info">
+                            <span class="pregnancy-badge-label">Grossesse</span>
+                            <span class="pregnancy-badge-level">
+                                {% if pregnancy_data.grossesse.level == 'danger' %}Contre-indiqué
+                                {% elif pregnancy_data.grossesse.level == 'deconseille' %}Déconseillé
+                                {% elif pregnancy_data.grossesse.level == 'precaution' %}Précaution
+                                {% elif pregnancy_data.grossesse.level == 'ok' %}Compatible
+                                {% else %}Données insuffisantes
+                                {% endif %}
+                            </span>
+                        </div>
+                        {% if pregnancy_data.grossesse.text %}
+                        <div class="pregnancy-badge-tooltip">{{ pregnancy_data.grossesse.text }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="pregnancy-badge pregnancy-badge--{{ pregnancy_data.allaitement.level }}">
+                        <i class="fas fa-heartbeat"></i>
+                        <div class="pregnancy-badge-info">
+                            <span class="pregnancy-badge-label">Allaitement</span>
+                            <span class="pregnancy-badge-level">
+                                {% if pregnancy_data.allaitement.level == 'danger' %}Contre-indiqué
+                                {% elif pregnancy_data.allaitement.level == 'deconseille' %}Déconseillé
+                                {% elif pregnancy_data.allaitement.level == 'precaution' %}Précaution
+                                {% elif pregnancy_data.allaitement.level == 'ok' %}Compatible
+                                {% else %}Données insuffisantes
+                                {% endif %}
+                            </span>
+                        </div>
+                        {% if pregnancy_data.allaitement.text %}
+                        <div class="pregnancy-badge-tooltip">{{ pregnancy_data.allaitement.text }}</div>
+                        {% endif %}
+                    </div>
+                    {% if pregnancy_data.fertilite.level != 'unknown' %}
+                    <div class="pregnancy-badge pregnancy-badge--{{ pregnancy_data.fertilite.level }}">
+                        <i class="fas fa-venus-mars"></i>
+                        <div class="pregnancy-badge-info">
+                            <span class="pregnancy-badge-label">Fertilité</span>
+                            <span class="pregnancy-badge-level">
+                                {% if pregnancy_data.fertilite.level == 'danger' %}Contre-indiqué
+                                {% elif pregnancy_data.fertilite.level == 'deconseille' %}Déconseillé
+                                {% elif pregnancy_data.fertilite.level == 'precaution' %}Précaution
+                                {% elif pregnancy_data.fertilite.level == 'ok' %}Compatible
+                                {% else %}Données insuffisantes
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                <p class="pregnancy-source-note">
+                    <i class="fas fa-info-circle"></i>
+                    Classification automatique extraite de la section 4.6 du RCP (ANSM). Consultez un professionnel de santé.
+                </p>
+            </div>
+        </section>
+        {% endif %}
+
         <section class="medicine-content">
             <div class="container">
                 <!-- Medicine content with sidebar -->

@@ -1,0 +1,512 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard – Entrepôt de données – Medialise{% endblock %}
+
+{% block page_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<!-- ══════════ Hero ══════════ -->
+<section class="dash-hero">
+  <div class="dash-hero-inner">
+    <div class="dash-hero-icon">
+      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+    </div>
+    <h1>Tableau de bord de l'entrepôt</h1>
+    <p class="dash-hero-sub">Vue d'ensemble des données médicamenteuses agrégées depuis 7 sources distinctes.</p>
+  </div>
+</section>
+
+<!-- ══════════ KPI Cards ══════════ -->
+<section class="dash-section">
+  <div class="dash-container">
+    <div class="kpi-grid">
+      <div class="kpi-card kpi-blue">
+        <div class="kpi-icon"><i class="fas fa-capsules"></i></div>
+        <div class="kpi-value">{{ "{:,}".format(total_market).replace(",", " ") }}</div>
+        <div class="kpi-label">Spécialités commerciales</div>
+        <div class="kpi-sub">Collection medicine_market</div>
+      </div>
+      <div class="kpi-card kpi-green">
+        <div class="kpi-icon"><i class="fas fa-atom"></i></div>
+        <div class="kpi-value">{{ "{:,}".format(total_substances).replace(",", " ") }}</div>
+        <div class="kpi-label">Substances actives</div>
+        <div class="kpi-sub">Collection substances_v3</div>
+      </div>
+      <div class="kpi-card kpi-purple">
+        <div class="kpi-icon"><i class="fas fa-file-medical"></i></div>
+        <div class="kpi-value">{{ "{:,}".format(total_medicines).replace(",", " ") }}</div>
+        <div class="kpi-label">Fiches médicament (RCP)</div>
+        <div class="kpi-sub">Collection medicines_v3</div>
+      </div>
+      <div class="kpi-card kpi-orange">
+        <div class="kpi-icon"><i class="fas fa-industry"></i></div>
+        <div class="kpi-value">{{ "{:,}".format(total_labs).replace(",", " ") }}</div>
+        <div class="kpi-label">Laboratoires</div>
+        <div class="kpi-sub">Fabricants distincts</div>
+      </div>
+      <div class="kpi-card kpi-red">
+        <div class="kpi-icon"><i class="fas fa-dna"></i></div>
+        <div class="kpi-value">{{ "{:,}".format(total_pharmgkb).replace(",", " ") }}</div>
+        <div class="kpi-label">Médicaments PharmGKB</div>
+        <div class="kpi-sub">{{ "{:,}".format(total_pgkb_rels).replace(",", " ") }} relations gène-médicament</div>
+      </div>
+      <div class="kpi-card kpi-teal">
+        <div class="kpi-icon"><i class="fas fa-database"></i></div>
+        <div class="kpi-value">{{ "{:,}".format(total_drugbank).replace(",", " ") }}</div>
+        <div class="kpi-label">Chunks DrugBank</div>
+        <div class="kpi-sub">dont {{ total_interactions }} interactions</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ Row 1: Sources + Countries ══════════ -->
+<section class="dash-section">
+  <div class="dash-container">
+    <div class="dash-grid-2">
+
+      <!-- Sources de données -->
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <h3><i class="fas fa-layer-group"></i> Sources de données</h3>
+        </div>
+        <div class="dash-card-body">
+          <div class="chart-container" style="position: relative; height: 300px;">
+            <canvas id="chartSources"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Répartition par pays -->
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <h3><i class="fas fa-globe-europe"></i> Répartition par pays</h3>
+        </div>
+        <div class="dash-card-body">
+          <div class="chart-container" style="position: relative; height: 300px;">
+            <canvas id="chartCountries"></canvas>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ Row 2: Top substances + Top labs ══════════ -->
+<section class="dash-section">
+  <div class="dash-container">
+    <div class="dash-grid-2">
+
+      <!-- Top substances -->
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <h3><i class="fas fa-flask"></i> Top 20 substances actives</h3>
+        </div>
+        <div class="dash-card-body">
+          <div class="chart-container" style="position: relative; height: 400px;">
+            <canvas id="chartSubstances"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top labs -->
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <h3><i class="fas fa-industry"></i> Top 15 laboratoires</h3>
+        </div>
+        <div class="dash-card-body">
+          <div class="chart-container" style="position: relative; height: 400px;">
+            <canvas id="chartLabs"></canvas>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ Row 3: PharmGKB - Genes + Associations ══════════ -->
+<section class="dash-section">
+  <div class="dash-container">
+    <div class="dash-grid-2">
+
+      <!-- Top gènes PharmGKB -->
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <h3><i class="fas fa-dna"></i> Top 15 gènes (PharmGKB)</h3>
+          <span class="card-badge badge-pharmgkb">PharmGKB</span>
+        </div>
+        <div class="dash-card-body">
+          <div class="chart-container" style="position: relative; height: 350px;">
+            <canvas id="chartGenes"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- PK/PD + Associations -->
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <h3><i class="fas fa-chart-pie"></i> Pharmacogénomique</h3>
+          <span class="card-badge badge-pharmgkb">PharmGKB</span>
+        </div>
+        <div class="dash-card-body">
+          <div class="dash-grid-2-inner">
+            <div>
+              <h4 class="mini-title">PK vs PD</h4>
+              <div class="chart-container" style="position: relative; height: 200px;">
+                <canvas id="chartPkPd"></canvas>
+              </div>
+            </div>
+            <div>
+              <h4 class="mini-title">Types d'association</h4>
+              <div class="chart-container" style="position: relative; height: 200px;">
+                <canvas id="chartAssoc"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ Row 4: DrugBank chunks + Formes galéniques ══════════ -->
+<section class="dash-section">
+  <div class="dash-container">
+    <div class="dash-grid-2">
+
+      <!-- DrugBank chunks -->
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <h3><i class="fas fa-database"></i> DrugBank – Types de données</h3>
+          <span class="card-badge badge-drugbank">DrugBank</span>
+        </div>
+        <div class="dash-card-body">
+          <div class="chart-container" style="position: relative; height: 300px;">
+            <canvas id="chartChunks"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Formes galéniques -->
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <h3><i class="fas fa-prescription-bottle"></i> Formes galéniques (Top 10)</h3>
+        </div>
+        <div class="dash-card-body">
+          <div class="chart-container" style="position: relative; height: 300px;">
+            <canvas id="chartForms"></canvas>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ Row 5: Derniers ajouts ══════════ -->
+<section class="dash-section">
+  <div class="dash-container">
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <h3><i class="fas fa-clock"></i> Derniers ajouts à l'entrepôt</h3>
+      </div>
+      <div class="dash-card-body">
+        <div class="table-responsive">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>Spécialité</th>
+                <th>Pays</th>
+                <th>Laboratoire</th>
+                <th>Mise à jour</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in latest %}
+              <tr>
+                <td class="td-med"><strong>{{ item.get('brand_title', 'N/A') }}</strong></td>
+                <td>
+                  <span class="country-badge">{{ item.get('country', '?') }}</span>
+                </td>
+                <td>{{ item.get('laboratory', 'N/A') }}</td>
+                <td class="td-date">
+                  {% if item.get('updated_at') %}
+                    {{ item['updated_at'].strftime('%d/%m/%Y %H:%M') if item['updated_at'].strftime is defined else item['updated_at'] }}
+                  {% else %}
+                    –
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ Footer note ══════════ -->
+<section class="dash-section" style="padding-bottom: 60px;">
+  <div class="dash-container">
+    <div class="dash-footer-note">
+      <i class="fas fa-info-circle"></i>
+      <p>Ces statistiques sont calculées en temps réel à partir de la base MongoDB. Dernière consultation : {{ now if now is defined else '–' }}.</p>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  // ─── Palette ───
+  const BLUE   = ['#2563eb','#3b82f6','#60a5fa','#93c5fd','#bfdbfe','#dbeafe','#eff6ff','#1d4ed8'];
+  const MULTI  = ['#2563eb','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#f97316','#6366f1','#14b8a6','#e11d48','#84cc16','#0ea5e9','#a855f7','#eab308','#22c55e','#d946ef','#64748b','#fb923c','#4ade80'];
+  const PASTEL = ['#dbeafe','#d1fae5','#fef3c7','#fee2e2','#ede9fe','#fce7f3','#cffafe','#ffedd5','#e0e7ff','#ccfbf1'];
+
+  Chart.defaults.font.family = "'Inter', 'Segoe UI', system-ui, sans-serif";
+  Chart.defaults.font.size = 12;
+  Chart.defaults.plugins.legend.labels.usePointStyle = true;
+  Chart.defaults.plugins.legend.labels.padding = 14;
+
+  // ─── 1) Sources (doughnut) ───
+  const sourcesData = {{ sources_data | tojson }};
+  new Chart(document.getElementById('chartSources'), {
+    type: 'doughnut',
+    data: {
+      labels: sourcesData.map(d => d.source),
+      datasets: [{
+        data: sourcesData.map(d => d.count),
+        backgroundColor: MULTI.slice(0, sourcesData.length),
+        borderWidth: 2,
+        borderColor: '#fff'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '55%',
+      plugins: {
+        legend: { position: 'right' }
+      }
+    }
+  });
+
+  // ─── 2) Countries (horizontal bar) ───
+  const countriesData = {{ countries_data | tojson }};
+  new Chart(document.getElementById('chartCountries'), {
+    type: 'bar',
+    data: {
+      labels: countriesData.map(d => d.country),
+      datasets: [{
+        label: 'Spécialités',
+        data: countriesData.map(d => d.count),
+        backgroundColor: BLUE.slice(0, countriesData.length),
+        borderRadius: 6,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#f1f5f9' } },
+        y: { grid: { display: false } }
+      }
+    }
+  });
+
+  // ─── 3) Top substances (horizontal bar) ───
+  const subsData = {{ top_substances | tojson }};
+  new Chart(document.getElementById('chartSubstances'), {
+    type: 'bar',
+    data: {
+      labels: subsData.map(d => d.label.length > 25 ? d.label.substring(0,25)+'…' : d.label),
+      datasets: [{
+        label: 'Médicaments',
+        data: subsData.map(d => d.count),
+        backgroundColor: '#10b981',
+        borderRadius: 4,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#f1f5f9' } },
+        y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+
+  // ─── 4) Top labs (horizontal bar) ───
+  const labsData = {{ labs_data | tojson }};
+  new Chart(document.getElementById('chartLabs'), {
+    type: 'bar',
+    data: {
+      labels: labsData.map(d => d.lab.length > 30 ? d.lab.substring(0,30)+'…' : d.lab),
+      datasets: [{
+        label: 'Spécialités',
+        data: labsData.map(d => d.count),
+        backgroundColor: '#f59e0b',
+        borderRadius: 4,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#f1f5f9' } },
+        y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+
+  // ─── 5) Top genes (bar) ───
+  const genesData = {{ top_genes | tojson }};
+  new Chart(document.getElementById('chartGenes'), {
+    type: 'bar',
+    data: {
+      labels: genesData.map(d => d.gene),
+      datasets: [{
+        label: 'Relations',
+        data: genesData.map(d => d.count),
+        backgroundColor: '#8b5cf6',
+        borderRadius: 4,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 45 } },
+        y: { grid: { color: '#f1f5f9' } }
+      }
+    }
+  });
+
+  // ─── 6) PK vs PD (doughnut) ───
+  new Chart(document.getElementById('chartPkPd'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Pharmacocinétique (PK)', 'Pharmacodynamique (PD)'],
+      datasets: [{
+        data: [{{ pk_count }}, {{ pd_count }}],
+        backgroundColor: ['#10b981', '#3b82f6'],
+        borderWidth: 2,
+        borderColor: '#fff'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '60%',
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } }
+    }
+  });
+
+  // ─── 7) Association types (doughnut) ───
+  const assocData = {{ assoc_data | tojson }};
+  new Chart(document.getElementById('chartAssoc'), {
+    type: 'doughnut',
+    data: {
+      labels: assocData.map(d => d.type),
+      datasets: [{
+        data: assocData.map(d => d.count),
+        backgroundColor: ['#10b981','#f59e0b','#ef4444','#8b5cf6','#64748b'],
+        borderWidth: 2,
+        borderColor: '#fff'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '60%',
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } }
+    }
+  });
+
+  // ─── 8) DrugBank chunks (bar) ───
+  const chunksData = {{ chunks_by_kind | tojson }};
+  const kindLabels = {
+    'drug-interactions': 'Interactions',
+    'targets': 'Cibles',
+    'enzymes': 'Enzymes',
+    'pathways': 'Voies métab.',
+    'transporters': 'Transporteurs',
+    'carriers': 'Carriers'
+  };
+  new Chart(document.getElementById('chartChunks'), {
+    type: 'bar',
+    data: {
+      labels: chunksData.map(d => kindLabels[d.kind] || d.kind),
+      datasets: [{
+        label: 'Chunks',
+        data: chunksData.map(d => d.count),
+        backgroundColor: ['#ef4444','#10b981','#8b5cf6','#f59e0b','#06b6d4','#ec4899'],
+        borderRadius: 6,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false } },
+        y: { grid: { color: '#f1f5f9' } }
+      }
+    }
+  });
+
+  // ─── 9) Formes galéniques (horizontal bar) ───
+  const formsData = {{ top_forms | tojson }};
+  new Chart(document.getElementById('chartForms'), {
+    type: 'bar',
+    data: {
+      labels: formsData.map(d => d.form.length > 30 ? d.form.substring(0,30)+'…' : d.form),
+      datasets: [{
+        label: 'Spécialités',
+        data: formsData.map(d => d.count),
+        backgroundColor: '#06b6d4',
+        borderRadius: 4,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#f1f5f9' } },
+        y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+
+})();
+</script>
+{% endblock %}

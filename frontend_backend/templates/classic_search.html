@@ -805,6 +805,61 @@
                 padding: 0 var(--space-sm);
             }
         }
+
+        /* =========================================
+           PREGNANCY / BREASTFEEDING BADGES
+        ========================================= */
+        .pregnancy-search-badges {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid rgba(0,0,0,0.06);
+        }
+        .preg-mini-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.2rem 0.6rem;
+            border-radius: 999px;
+            white-space: nowrap;
+            cursor: default;
+        }
+        .preg-mini-badge i { font-size: 0.7rem; }
+        .preg-danger  { background: #fde8e8; color: #991b1b; }
+        .preg-deconseille { background: #fff3e0; color: #b45309; }
+        .preg-precaution  { background: #fef9c3; color: #854d0e; }
+        .preg-ok      { background: #dcfce7; color: #166534; }
+        .preg-unknown { background: #f3f4f6; color: #6b7280; }
+
+        /* Grossesse filter group in sidebar */
+        .filter-group-grossesse {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(0,0,0,0.08);
+        }
+        .filter-group-grossesse .filter-group-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+        .grossesse-radio-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+        .grossesse-radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.82rem;
+            cursor: pointer;
+            padding: 0.25rem 0;
+        }
     </style>
 </head>
 <body>
@@ -940,6 +995,29 @@
                         </div>
                     </div>
                     
+                    <!-- Filtre Grossesse / Allaitement -->
+                    <div class="filter-row">
+                        <div class="filter-group" style="grid-column: 1 / -1;">
+                            <label class="filter-label">
+                                <i class="fas fa-baby"></i> Grossesse / Allaitement
+                            </label>
+                            <div class="grossesse-filter-options" style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.5rem;">
+                                <label class="grossesse-option" style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; padding: 0.4rem 0.8rem; border-radius: 8px; border: 1px solid #d1d5db; transition: all 0.2s;">
+                                    <input type="radio" name="grossesse" value="" checked style="cursor: pointer;">
+                                    <span>Tous</span>
+                                </label>
+                                <label class="grossesse-option grossesse-option--compatible" style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; padding: 0.4rem 0.8rem; border-radius: 8px; border: 1px solid #86efac; background: #f0fdf4; transition: all 0.2s;">
+                                    <input type="radio" name="grossesse" value="compatible" style="cursor: pointer;">
+                                    <span style="color: #166534; font-weight: 500;">🟢 Non contre-indiqué</span>
+                                </label>
+                                <label class="grossesse-option grossesse-option--danger" style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; padding: 0.4rem 0.8rem; border-radius: 8px; border: 1px solid #fca5a5; background: #fef2f2; transition: all 0.2s;">
+                                    <input type="radio" name="grossesse" value="danger" style="cursor: pointer;">
+                                    <span style="color: #991b1b; font-weight: 500;">🔴 Contre-indiqué</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="filter-actions">
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-search"></i> {{ _('search.search_button') }}
@@ -1024,6 +1102,10 @@
                 document.querySelectorAll('input[name="sources"]').forEach(function(checkbox) {
                     checkbox.checked = false;
                 });
+
+                // Réinitialiser le filtre grossesse
+                const grossesseAll = document.querySelector('input[name="grossesse"][value=""]');
+                if (grossesseAll) grossesseAll.checked = true;
                 
                 // Rediriger vers la page de recherche sans paramètres au lieu de submit
                 window.location.href = '/search';
@@ -1041,6 +1123,9 @@
             
             // Récupérer les sources sélectionnées
             const sources = urlParams.getAll('sources');
+
+            // Récupérer le filtre grossesse
+            const grossesse = urlParams.get('grossesse') || '';
             
             // Cocher les checkboxes des sources
             if (sources && sources.length > 0) {
@@ -1051,10 +1136,16 @@
                     }
                 });
             }
+
+            // Sélectionner le radio grossesse
+            if (grossesse) {
+                const radio = document.querySelector(`input[name="grossesse"][value="${grossesse}"]`);
+                if (radio) radio.checked = true;
+            }
             
-            loadSearchResults(searchQuery, currentPage, perPage, substance, forme, laboratoire, dosage, sort, sources);
+            loadSearchResults(searchQuery, currentPage, perPage, substance, forme, laboratoire, dosage, sort, sources, grossesse);
             
-            function loadSearchResults(search, page, perPage, substance, forme, laboratoire, dosage, sort, sources = []) {
+            function loadSearchResults(search, page, perPage, substance, forme, laboratoire, dosage, sort, sources = [], grossesse = '') {
                 const resultsContainer = document.getElementById('search-results');
                 resultsContainer.innerHTML = `
                     <div class="loading-spinner">
@@ -1068,6 +1159,7 @@
                 if (laboratoire) apiUrl += `&laboratoire=${encodeURIComponent(laboratoire)}`;
                 if (dosage) apiUrl += `&dosage=${encodeURIComponent(dosage)}`;
                 if (sort) apiUrl += `&sort=${sort}`;
+                if (grossesse) apiUrl += `&grossesse=${encodeURIComponent(grossesse)}`;
                 
                 // Ajouter les sources sélectionnées
                 if (sources && sources.length > 0) {
@@ -1223,10 +1315,36 @@
                 </div>
             </div>
 
+            ${generatePregnancyBadges(medicine.pregnancy_info)}
+
             ${matchesHTML}
             </div>
         `;
         }
+
+        function generatePregnancyBadges(info) {
+            if (!info) return '';
+            const levelLabels = {
+                'danger': { text: 'Contre-indiqué', icon: '🔴', cls: 'preg-danger' },
+                'deconseille': { text: 'Déconseillé', icon: '🟠', cls: 'preg-deconseille' },
+                'precaution': { text: 'Précaution', icon: '🟡', cls: 'preg-precaution' },
+                'ok': { text: 'Compatible', icon: '🟢', cls: 'preg-ok' },
+                'unknown': { text: 'Non évalué', icon: '⚪', cls: 'preg-unknown' }
+            };
+            const g = levelLabels[info.grossesse] || levelLabels['unknown'];
+            const a = levelLabels[info.allaitement] || levelLabels['unknown'];
+            return `
+                <div class="pregnancy-search-badges">
+                    <span class="preg-mini-badge ${g.cls}" title="Grossesse: ${g.text}">
+                        <i class="fas fa-baby"></i> ${g.icon} ${g.text}
+                    </span>
+                    <span class="preg-mini-badge ${a.cls}" title="Allaitement: ${a.text}">
+                        <i class="fas fa-heartbeat"></i> ${a.icon} ${a.text}
+                    </span>
+                </div>
+            `;
+        }
+
 function generatePagination(totalPages, currentPage) {
                 if (totalPages <= 1) {
                     document.getElementById('pagination').innerHTML = '';

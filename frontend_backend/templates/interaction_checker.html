@@ -1,0 +1,431 @@
+{% extends 'base.html' %}
+
+{% block title %}Vérificateur d'interactions – Medialise{% endblock %}
+
+{% block page_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/interaction_checker.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="checker-hero">
+  <div class="checker-hero-inner">
+    <div class="checker-hero-icon">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M16.5 9.4l-9-5.19M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
+        <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+        <line x1="12" y1="22.08" x2="12" y2="12"/>
+      </svg>
+    </div>
+    <h1>Vérificateur d'interactions médicamenteuses</h1>
+    <p class="checker-hero-sub">Sélectionnez 2 à 10 médicaments ou substances actives pour détecter les interactions croisées potentielles.</p>
+    <div class="checker-hero-badges">
+      <span class="badge-source"><i class="fas fa-database"></i> DrugBank</span>
+      <span class="badge-source"><i class="fas fa-flask"></i> CYP450 Métabolisme</span>
+      <span class="badge-source"><i class="fas fa-shield-alt"></i> Aide à la prescription</span>
+    </div>
+  </div>
+</section>
+
+<section class="checker-main">
+  <div class="checker-container">
+    <!-- ── Input Panel ── -->
+    <div class="checker-input-panel">
+      <div class="panel-header">
+        <h2><i class="fas fa-pills"></i> Sélection des médicaments</h2>
+        <span class="drug-count-badge" id="drugCountBadge">0 / 10</span>
+      </div>
+
+      <div class="search-box">
+        <div class="search-input-wrapper">
+          <i class="fas fa-search search-icon"></i>
+          <input
+            type="text"
+            id="drugSearchInput"
+            placeholder="Tapez le nom d'un médicament ou d'une substance active…"
+            autocomplete="off"
+          />
+          <div class="search-spinner" id="searchSpinner" style="display:none;">
+            <div class="spinner-sm"></div>
+          </div>
+        </div>
+        <div class="autocomplete-dropdown" id="autocompleteDropdown"></div>
+      </div>
+
+      <!-- Selected drugs -->
+      <div class="selected-drugs" id="selectedDrugs">
+        <p class="empty-state" id="emptyState">
+          <i class="fas fa-arrow-up"></i> Commencez par rechercher un médicament ci-dessus
+        </p>
+      </div>
+
+      <!-- Actions -->
+      <div class="checker-actions">
+        <button class="btn-check" id="btnCheck" disabled>
+          <i class="fas fa-search-plus"></i>
+          <span>Vérifier les interactions</span>
+        </button>
+        <button class="btn-clear" id="btnClear" style="display:none;">
+          <i class="fas fa-trash-alt"></i>
+          <span>Tout effacer</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Results Panel ── -->
+    <div class="checker-results-panel" id="resultsPanel" style="display:none;">
+      <!-- Loading state -->
+      <div class="results-loading" id="resultsLoading" style="display:none;">
+        <div class="spinner-lg"></div>
+        <p>Analyse des interactions en cours…</p>
+      </div>
+
+      <!-- Summary cards -->
+      <div class="results-summary" id="resultsSummary" style="display:none;">
+        <div class="summary-card summary-drugs">
+          <div class="summary-icon"><i class="fas fa-pills"></i></div>
+          <div class="summary-value" id="summaryDrugs">0</div>
+          <div class="summary-label">Médicaments analysés</div>
+        </div>
+        <div class="summary-card summary-interactions">
+          <div class="summary-icon"><i class="fas fa-exclamation-triangle"></i></div>
+          <div class="summary-value" id="summaryInteractions">0</div>
+          <div class="summary-label">Interactions détectées</div>
+        </div>
+        <div class="summary-card summary-enzymes">
+          <div class="summary-icon"><i class="fas fa-flask"></i></div>
+          <div class="summary-value" id="summaryEnzymes">0</div>
+          <div class="summary-label">Alertes enzymatiques</div>
+        </div>
+      </div>
+
+      <!-- Global alert -->
+      <div class="results-alert" id="resultsAlert" style="display:none;"></div>
+
+      <!-- Interaction details -->
+      <div class="results-interactions" id="resultsInteractions"></div>
+
+      <!-- Enzyme warnings -->
+      <div class="results-enzymes" id="resultsEnzymes"></div>
+
+      <!-- Analyzed drugs list -->
+      <div class="results-analyzed" id="resultsAnalyzed"></div>
+    </div>
+
+    <!-- ── Error panel ── -->
+    <div class="checker-error" id="errorPanel" style="display:none;">
+      <i class="fas fa-exclamation-circle"></i>
+      <p id="errorMessage"></p>
+    </div>
+  </div>
+</section>
+
+<!-- Disclaimer -->
+<section class="checker-disclaimer">
+  <div class="checker-container">
+    <div class="disclaimer-box">
+      <i class="fas fa-info-circle"></i>
+      <p>
+        <strong>Avertissement :</strong> Cet outil est une aide à la décision basée sur les données DrugBank.
+        Il ne remplace pas le jugement clinique d'un professionnel de santé. Consultez toujours le RCP officiel et la base Thériaque
+        pour une vérification complète avant toute prescription.
+      </p>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  'use strict';
+
+  // ─── State ───
+  const selectedDrugs = [];
+  let searchTimeout = null;
+
+  // ─── DOM refs ───
+  const searchInput    = document.getElementById('drugSearchInput');
+  const dropdown       = document.getElementById('autocompleteDropdown');
+  const spinner        = document.getElementById('searchSpinner');
+  const selectedEl     = document.getElementById('selectedDrugs');
+  const emptyState     = document.getElementById('emptyState');
+  const btnCheck       = document.getElementById('btnCheck');
+  const btnClear       = document.getElementById('btnClear');
+  const countBadge     = document.getElementById('drugCountBadge');
+  const resultsPanel   = document.getElementById('resultsPanel');
+  const resultsLoading = document.getElementById('resultsLoading');
+  const resultsSummary = document.getElementById('resultsSummary');
+  const resultsAlert   = document.getElementById('resultsAlert');
+  const resultsInter   = document.getElementById('resultsInteractions');
+  const resultsEnz     = document.getElementById('resultsEnzymes');
+  const resultsAnalyzed= document.getElementById('resultsAnalyzed');
+  const errorPanel     = document.getElementById('errorPanel');
+  const errorMessage   = document.getElementById('errorMessage');
+
+  // ─── Autocomplete search ───
+  searchInput.addEventListener('input', function() {
+    const q = this.value.trim();
+    clearTimeout(searchTimeout);
+    dropdown.innerHTML = '';
+    dropdown.style.display = 'none';
+
+    if (q.length < 2) { spinner.style.display = 'none'; return; }
+
+    spinner.style.display = 'flex';
+    searchTimeout = setTimeout(() => {
+      fetch('/api/interaction-checker/search-drugs?q=' + encodeURIComponent(q))
+        .then(r => r.json())
+        .then(results => {
+          spinner.style.display = 'none';
+          if (!results.length) {
+            dropdown.innerHTML = '<div class="ac-empty">Aucun résultat trouvé</div>';
+            dropdown.style.display = 'block';
+            return;
+          }
+          dropdown.innerHTML = results.map(r => {
+            const isAlready = selectedDrugs.some(d =>
+              (d.drugbank_id && d.drugbank_id === r.drugbank_id) ||
+              (d.label.toLowerCase() === r.label.toLowerCase())
+            );
+            const cls = isAlready ? 'ac-item ac-disabled' : 'ac-item';
+            const typeIcon = r.type === 'substance'
+              ? '<span class="ac-type ac-substance"><i class="fas fa-atom"></i> Substance</span>'
+              : '<span class="ac-type ac-medicine"><i class="fas fa-capsules"></i> Spécialité</span>';
+            const extra = r.country ? ` <span class="ac-country">${r.country}</span>` : '';
+            return `<div class="${cls}" data-drug='${JSON.stringify(r).replace(/'/g, "&#39;")}'>
+              <div class="ac-label">${r.label}${extra}</div>
+              ${typeIcon}
+              ${isAlready ? '<span class="ac-already"><i class="fas fa-check"></i></span>' : ''}
+            </div>`;
+          }).join('');
+          dropdown.style.display = 'block';
+        })
+        .catch(() => { spinner.style.display = 'none'; });
+    }, 300);
+  });
+
+  dropdown.addEventListener('click', function(e) {
+    const item = e.target.closest('.ac-item');
+    if (!item || item.classList.contains('ac-disabled')) return;
+    const drug = JSON.parse(item.dataset.drug);
+    addDrug(drug);
+    searchInput.value = '';
+    dropdown.style.display = 'none';
+    searchInput.focus();
+  });
+
+  document.addEventListener('click', function(e) {
+    if (!dropdown.contains(e.target) && e.target !== searchInput) {
+      dropdown.style.display = 'none';
+    }
+  });
+
+  // ─── Drug management ───
+  function addDrug(drug) {
+    if (selectedDrugs.length >= 10) return;
+    if (selectedDrugs.some(d =>
+      (d.drugbank_id && d.drugbank_id === drug.drugbank_id) ||
+      (d.label.toLowerCase() === drug.label.toLowerCase())
+    )) return;
+
+    selectedDrugs.push(drug);
+    renderSelectedDrugs();
+    updateState();
+  }
+
+  function removeDrug(index) {
+    selectedDrugs.splice(index, 1);
+    renderSelectedDrugs();
+    updateState();
+  }
+
+  function renderSelectedDrugs() {
+    if (selectedDrugs.length === 0) {
+      emptyState.style.display = 'block';
+      selectedEl.querySelectorAll('.drug-chip').forEach(el => el.remove());
+      return;
+    }
+    emptyState.style.display = 'none';
+
+    // Remove existing chips
+    selectedEl.querySelectorAll('.drug-chip').forEach(el => el.remove());
+
+    selectedDrugs.forEach((drug, idx) => {
+      const chip = document.createElement('div');
+      chip.className = 'drug-chip';
+      chip.dataset.index = idx;
+      const typeClass = drug.type === 'substance' ? 'chip-substance' : 'chip-medicine';
+      chip.classList.add(typeClass);
+      chip.innerHTML = `
+        <span class="chip-icon">${drug.type === 'substance' ? '<i class="fas fa-atom"></i>' : '<i class="fas fa-capsules"></i>'}</span>
+        <span class="chip-label">${drug.label}</span>
+        ${drug.drugbank_id ? '<span class="chip-db">' + drug.drugbank_id + '</span>' : ''}
+        <button class="chip-remove" title="Retirer"><i class="fas fa-times"></i></button>
+      `;
+      chip.querySelector('.chip-remove').addEventListener('click', () => removeDrug(idx));
+      selectedEl.appendChild(chip);
+    });
+  }
+
+  function updateState() {
+    countBadge.textContent = selectedDrugs.length + ' / 10';
+    btnCheck.disabled = selectedDrugs.length < 2;
+    btnClear.style.display = selectedDrugs.length > 0 ? 'inline-flex' : 'none';
+
+    // Color badge
+    if (selectedDrugs.length >= 2) {
+      countBadge.classList.add('badge-ready');
+    } else {
+      countBadge.classList.remove('badge-ready');
+    }
+  }
+
+  btnClear.addEventListener('click', function() {
+    selectedDrugs.length = 0;
+    renderSelectedDrugs();
+    updateState();
+    resultsPanel.style.display = 'none';
+    errorPanel.style.display = 'none';
+  });
+
+  // ─── Check interactions ───
+  btnCheck.addEventListener('click', function() {
+    if (selectedDrugs.length < 2) return;
+
+    // Show loading
+    resultsPanel.style.display = 'block';
+    resultsLoading.style.display = 'flex';
+    resultsSummary.style.display = 'none';
+    resultsAlert.style.display = 'none';
+    resultsInter.innerHTML = '';
+    resultsEnz.innerHTML = '';
+    resultsAnalyzed.innerHTML = '';
+    errorPanel.style.display = 'none';
+
+    // Scroll to results
+    resultsPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    fetch('/api/interaction-checker/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ drugs: selectedDrugs })
+    })
+    .then(r => r.json())
+    .then(data => {
+      resultsLoading.style.display = 'none';
+
+      if (data.error) {
+        errorPanel.style.display = 'flex';
+        errorMessage.textContent = data.error;
+        resultsPanel.style.display = 'none';
+        return;
+      }
+
+      renderResults(data);
+    })
+    .catch(err => {
+      resultsLoading.style.display = 'none';
+      errorPanel.style.display = 'flex';
+      errorMessage.textContent = 'Erreur de connexion au serveur. Veuillez réessayer.';
+    });
+  });
+
+  // ─── Render results ───
+  function renderResults(data) {
+    // Summary cards
+    document.getElementById('summaryDrugs').textContent = data.total_analyzed;
+    document.getElementById('summaryInteractions').textContent = data.interaction_count;
+    document.getElementById('summaryEnzymes').textContent = data.enzyme_warning_count;
+    resultsSummary.style.display = 'grid';
+
+    // Color the interaction card
+    const interCard = document.querySelector('.summary-interactions');
+    interCard.classList.remove('has-alerts', 'all-clear');
+    if (data.interaction_count > 0) {
+      interCard.classList.add('has-alerts');
+    } else {
+      interCard.classList.add('all-clear');
+    }
+
+    // Global alert
+    if (data.interaction_count === 0 && data.enzyme_warning_count === 0) {
+      resultsAlert.style.display = 'block';
+      resultsAlert.className = 'results-alert alert-success';
+      resultsAlert.innerHTML = '<i class="fas fa-check-circle"></i> <strong>Aucune interaction détectée</strong> entre les ' + data.total_analyzed + ' médicaments analysés dans la base DrugBank.';
+    } else if (data.interaction_count > 0) {
+      resultsAlert.style.display = 'block';
+      resultsAlert.className = 'results-alert alert-danger';
+      resultsAlert.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <strong>' + data.interaction_count + ' interaction(s) médicamenteuse(s) détectée(s) !</strong> Consultez les détails ci-dessous avant toute co-prescription.';
+    }
+
+    // Interactions list
+    if (data.interactions && data.interactions.length > 0) {
+      resultsInter.innerHTML = `
+        <h3 class="results-section-title"><i class="fas fa-exclamation-triangle"></i> Interactions médicamenteuses détectées</h3>
+        ${data.interactions.map((inter, i) => `
+          <div class="interaction-card danger-card" style="animation-delay: ${i * 0.1}s">
+            <div class="interaction-header">
+              <span class="interaction-drug">${inter.drug_a}</span>
+              <span class="interaction-arrow"><i class="fas fa-arrows-alt-h"></i></span>
+              <span class="interaction-drug">${inter.drug_b}</span>
+              <span class="interaction-severity severity-high"><i class="fas fa-exclamation-circle"></i> Interaction documentée</span>
+            </div>
+            <div class="interaction-description">
+              <p>${inter.description}</p>
+            </div>
+            <div class="interaction-footer">
+              <span class="interaction-source"><i class="fas fa-database"></i> ${inter.source}</span>
+              <span class="interaction-ids">${inter.drug_a_id} ↔ ${inter.drug_b_id}</span>
+            </div>
+          </div>
+        `).join('')}
+      `;
+    }
+
+    // Enzyme warnings
+    if (data.enzyme_warnings && data.enzyme_warnings.length > 0) {
+      resultsEnz.innerHTML = `
+        <h3 class="results-section-title"><i class="fas fa-flask"></i> Alertes de compétition enzymatique (CYP450)</h3>
+        <div class="enzyme-info-box">
+          <i class="fas fa-info-circle"></i>
+          <p>Lorsque deux médicaments sont métabolisés par les mêmes enzymes CYP450, ils entrent en compétition. Cela peut modifier les concentrations plasmatiques et l'efficacité/toxicité de ces médicaments.</p>
+        </div>
+        ${data.enzyme_warnings.map((warn, i) => `
+          <div class="interaction-card warning-card" style="animation-delay: ${(data.interactions ? data.interactions.length : 0) * 0.1 + i * 0.1}s">
+            <div class="interaction-header">
+              <span class="interaction-drug">${warn.drug_a}</span>
+              <span class="interaction-arrow"><i class="fas fa-arrows-alt-h"></i></span>
+              <span class="interaction-drug">${warn.drug_b}</span>
+              <span class="interaction-severity severity-moderate"><i class="fas fa-flask"></i> Compétition enzymatique</span>
+            </div>
+            <div class="interaction-description">
+              <p>${warn.warning}</p>
+              <div class="enzyme-tags">
+                ${warn.shared_enzymes.map(e => '<span class="enzyme-tag">' + e + '</span>').join('')}
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      `;
+    }
+
+    // Analyzed drugs recap
+    if (data.drugs_analyzed && data.drugs_analyzed.length > 0) {
+      resultsAnalyzed.innerHTML = `
+        <h3 class="results-section-title"><i class="fas fa-clipboard-list"></i> Médicaments analysés</h3>
+        <div class="analyzed-list">
+          ${data.drugs_analyzed.map(d => `
+            <div class="analyzed-item">
+              <i class="fas fa-check-circle"></i>
+              <span class="analyzed-label">${d.label}</span>
+              <span class="analyzed-id">${d.drugbank_id}</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+  }
+
+})();
+</script>
+{% endblock %}

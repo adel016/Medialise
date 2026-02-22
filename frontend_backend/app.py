@@ -263,6 +263,170 @@ def test_v3():
     return render_template("test_v3.html")
 
 
+# ───────────────────────────────────────────────────────────────────
+# Grossesse / Allaitement / Pédiatrie — classification depuis RCP 4.6
+# ───────────────────────────────────────────────────────────────────
+def _extract_section_46_text(rcp: dict) -> dict:
+    """
+    Extrait le texte brut des sous-sections Grossesse, Allaitement et Fertilité
+    depuis la section RCP 4.6. Renvoie un dict {grossesse, allaitement, fertilite}
+    avec le texte concaténé de chaque sous-section.
+    """
+    result = {"grossesse": "", "allaitement": "", "fertilite": "", "raw": ""}
+    if not rcp or not isinstance(rcp, dict):
+        return result
+
+    sections = rcp.get("sections") or []
+    for section in sections:
+        title = (section.get("title") or "").strip()
+        if not title.startswith("4.") and "DONNEES CLINIQUES" not in title.upper():
+            continue
+
+        subsections = section.get("subsections") or []
+        for sub in subsections:
+            sub_title = (sub.get("title") or "").lower()
+            if "4.6" not in sub_title and "grossesse" not in sub_title and "fertil" not in sub_title:
+                continue
+
+            # Texte direct de la section 4.6
+            raw_parts = []
+            for c in (sub.get("content") or []):
+                txt = (c.get("text") or "").strip() if isinstance(c, dict) else str(c).strip()
+                if txt:
+                    raw_parts.append(txt)
+
+            # Sous-sous-sections (Grossesse, Allaitement, Fertilité)
+            for subsub in (sub.get("subsections") or []):
+                ss_title = (subsub.get("title") or "").lower().strip()
+                ss_parts = []
+                for c in (subsub.get("content") or []):
+                    txt = (c.get("text") or "").strip() if isinstance(c, dict) else str(c).strip()
+                    if txt:
+                        ss_parts.append(txt)
+                ss_text = " ".join(ss_parts)
+
+                if "grossesse" in ss_title:
+                    result["grossesse"] += " " + ss_text
+                elif "allaitement" in ss_title:
+                    result["allaitement"] += " " + ss_text
+                elif "fertil" in ss_title:
+                    result["fertilite"] += " " + ss_text
+                else:
+                    raw_parts.append(ss_text)
+
+            combined_raw = " ".join(raw_parts)
+            result["raw"] += " " + combined_raw
+
+            # Si pas de sous-sous-sections étiquetées, tout mettre dans grossesse+allaitement
+            if not result["grossesse"] and not result["allaitement"]:
+                full = combined_raw.lower()
+                result["grossesse"] = combined_raw
+                result["allaitement"] = combined_raw
+
+            break  # section 4.6 trouvée
+    return result
+
+
+def _classify_text_pregnancy(text: str) -> str:
+    """
+    Classifie un texte RCP grossesse/allaitement.
+    Renvoie: 'danger', 'deconseille', 'precaution', 'ok', 'unknown'
+    """
+    if not text or not text.strip():
+        return "unknown"
+    t = text.lower()
+
+    # DANGER — contre-indiqué
+    danger_kw = [
+        "contre-indiqué", "contre-indiquée", "contre-indiquées", "contre-indiqués",
+        "ne doit pas être utilisé", "ne doit pas être administré",
+        "ne pas utiliser", "formellement contre-indiqué",
+        "est interdit", "interdite pendant la grossesse",
+        "est contre-indiqué pendant", "usage est contre-indiqué",
+    ]
+    for kw in danger_kw:
+        if kw in t:
+            return "danger"
+
+    # DÉCONSEILLÉ
+    deconseille_kw = [
+        "déconseillé", "est déconseillée", "ne doit être envisagé",
+        "ne doit être utilisé que si", "ne doit pas être prescrit",
+        "éviter", "doit être évité",
+        "ne pas allaiter", "n'est pas recommandé",
+    ]
+    for kw in deconseille_kw:
+        if kw in t:
+            return "deconseille"
+
+    # PRÉCAUTION — ni interdit ni déconseillé mais attention
+    precaution_kw = [
+        "précaution", "prudence", "si nécessaire",
+        "après évaluation du rapport bénéfice", "bénéfice/risque",
+        "sous surveillance", "avis médical",
+        "données limitées", "données insuffisantes",
+        "pas de données adéquates", "par mesure de précaution",
+    ]
+    for kw in precaution_kw:
+        if kw in t:
+            return "precaution"
+
+    # OK — explicitement compatible
+    ok_kw = [
+        "peut être utilisé", "peut être poursuivi",
+        "compatible avec", "sans risque",
+        "peut être administré", "peut être pris",
+        "n'a pas montré de risque", "absence de risque",
+    ]
+    for kw in ok_kw:
+        if kw in t:
+            return "ok"
+
+    return "unknown"
+
+
+def classify_pregnancy_breastfeeding(rcp: dict) -> dict:
+    """
+    Analyse la section 4.6 du RCP et classifie les risques pour :
+      - grossesse
+      - allaitement
+      - fertilité
+    Renvoie un dict avec le niveau de risque et un court résumé.
+    Niveaux: danger / deconseille / precaution / ok / unknown
+    """
+    texts = _extract_section_46_text(rcp)
+
+    grossesse_text = texts["grossesse"] or texts["raw"]
+    allaitement_text = texts["allaitement"] or texts["raw"]
+    fertilite_text = texts["fertilite"]
+
+    result = {
+        "grossesse": {
+            "level": _classify_text_pregnancy(grossesse_text),
+            "text": grossesse_text.strip()[:300] if grossesse_text.strip() else "",
+        },
+        "allaitement": {
+            "level": _classify_text_pregnancy(allaitement_text),
+            "text": allaitement_text.strip()[:300] if allaitement_text.strip() else "",
+        },
+        "fertilite": {
+            "level": _classify_text_pregnancy(fertilite_text),
+            "text": fertilite_text.strip()[:300] if fertilite_text.strip() else "",
+        },
+        "has_data": bool(grossesse_text.strip() or allaitement_text.strip()),
+    }
+
+    # Niveau global = le pire des 3
+    levels_order = {"danger": 0, "deconseille": 1, "precaution": 2, "ok": 3, "unknown": 4}
+    worst = min(
+        [result["grossesse"]["level"], result["allaitement"]["level"]],
+        key=lambda x: levels_order.get(x, 5)
+    )
+    result["global_level"] = worst
+
+    return result
+
+
 def extract_filter_options():
     """
     Filtres pour la recherche classique (V3).
@@ -2126,6 +2290,15 @@ def medicine_market_details(id):
         # JSON brut (pour "Afficher JSON")
         medicine_json = json.dumps(bson_to_json(medicine), indent=2, ensure_ascii=False)
 
+        # ✅ Classification Grossesse / Allaitement depuis RCP section 4.6
+        pregnancy_data = None
+        try:
+            rcp = market_doc.get("rcp") or {}
+            if rcp and isinstance(rcp, dict) and rcp.get("sections"):
+                pregnancy_data = classify_pregnancy_breastfeeding(rcp)
+        except Exception as e:
+            print(f"⚠️  Erreur classification grossesse: {e}")
+
         return render_template(
             'medicine_details.html',
             medicine=medicine,
@@ -2134,7 +2307,8 @@ def medicine_market_details(id):
             comments=comments,
             pharmgkb_data=pharmgkb_data,
             substance_images=substance_images,
-            drugbank_chunks=drugbank_chunks
+            drugbank_chunks=drugbank_chunks,
+            pregnancy_data=pregnancy_data
         )
 
     except Exception as e:
@@ -2197,6 +2371,10 @@ def search_results_api():
 
         # Filtre par sources de données (nouveau)
         sources = request.args.getlist("sources")  # Array: ['ANSM', 'PharmGKB', etc.]
+
+        # Filtre grossesse/allaitement
+        grossesse_filter = (request.args.get("grossesse", "") or "").strip()
+        # Valeurs possibles: "compatible", "danger", "" (pas de filtre)
         
         # optionnel (si tu ajoutes un filtre pays plus tard)
         country = (request.args.get("country", "") or "").strip()
@@ -2317,6 +2495,31 @@ def search_results_api():
         if sources and len(sources) > 0:
             # Filtrer les médocs qui ont AU MOINS une des sources sélectionnées
             match_filters.append({"data_sources": {"$in": sources}})
+
+        # -----------------------------
+        # (E) Filtre Grossesse / Allaitement
+        # -----------------------------
+        if grossesse_filter == "compatible":
+            # Exclure les médicaments dont la section 4.6 contient "contre-indiqué"
+            # Ne garder que les FR avec RCP (les autres n'ont pas de section 4.6)
+            match_filters.append({"country": "FR"})
+            match_filters.append({"rcp.sections": {"$exists": True}})
+            # Exclure ceux avec contre-indication formelle dans les sous-sections grossesse
+            match_filters.append({
+                "rcp.sections.subsections.content.text": {
+                    "$not": {"$regex": "contre-indiqu", "$options": "i"}
+                }
+            })
+        elif grossesse_filter == "danger":
+            # Garder uniquement les médicaments contre-indiqués pendant la grossesse
+            match_filters.append({"country": "FR"})
+            match_filters.append({"rcp.sections": {"$exists": True}})
+            match_filters.append({
+                "rcp.sections.subsections.content.text": {
+                    "$regex": "contre-indiqu", "$options": "i"
+                }
+            })
+
         query = {"$and": match_filters} if match_filters else {}
 
         # -----------------------------
@@ -2527,10 +2730,27 @@ def search_results_api():
                 x = x.strip()
                 if x and x not in substances_clean:
                     substances_clean.append(x)
+
+            # ✅ Classification grossesse/allaitement depuis RCP 4.6
+            pregnancy_info = None
+            rcp_raw = mk.get("rcp")
+            if rcp_raw and isinstance(rcp_raw, dict) and rcp_raw.get("sections"):
+                try:
+                    preg = classify_pregnancy_breastfeeding(rcp_raw)
+                    if preg.get("has_data"):
+                        pregnancy_info = {
+                            "global_level": preg["global_level"],
+                            "grossesse": preg["grossesse"]["level"],
+                            "allaitement": preg["allaitement"]["level"],
+                        }
+                except Exception:
+                    pass
+
             results.append({
                 "id": mk.get("market_key") or mk.get("_id"),  # utiliser market_key pour éviter les / dans les URLs
                 "title": mk.get("brand_title") or mk.get("medicine_id") or str(mk.get("_id")),
                 "update_date": ts_to_date(mk.get("updated_at")),
+                "pregnancy_info": pregnancy_info,
                 "medicine_details": {
                     "forme": mk.get("form") or "Non spécifié",
                     "dosages": [mk.get("strength")] if mk.get("strength") else [],
@@ -2855,6 +3075,462 @@ def ai_search():
         total=total,
         initial_count=5
     )
+
+###############################################################################
+# ─── DASHBOARD ── Tableau de bord de l'entrepôt de données ───────────────────
+###############################################################################
+
+@app.route('/dashboard')
+def dashboard():
+    """Dashboard statistiques de l'entrepôt de données médicamenteuses"""
+    try:
+        # ── 1) Compteurs globaux ──
+        total_market       = medicine_market.count_documents({})
+        total_medicines    = medicines_v3.count_documents({})
+        total_substances   = substances_v3.count_documents({})
+        total_labs         = len(medicine_market.distinct("laboratory", {"laboratory": {"$nin": [None, ""]}}))
+        total_pharmgkb     = db.pharmgkb_drugs.count_documents({})
+        total_pgkb_rels    = db.pharmgkb_relationships.count_documents({})
+        total_drugbank     = db.drugbank_raw_chunks.count_documents({})
+        total_interactions = db.drugbank_raw_chunks.count_documents({'kind': 'drug-interactions'})
+
+        # ── 2) Répartition par pays (tous) ──
+        countries_pipeline = [
+            {"$match": {"country": {"$nin": [None, ""]}}},
+            {"$group": {"_id": "$country", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}}
+        ]
+        countries_raw = list(medicine_market.aggregate(countries_pipeline))
+        countries_data = [{"country": d["_id"], "count": d["count"]} for d in countries_raw]
+
+        # ── 3) Top 15 laboratoires ──
+        labs_pipeline = [
+            {"$match": {"laboratory": {"$nin": [None, ""]}}},
+            {"$group": {"_id": "$laboratory", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 15}
+        ]
+        labs_data = [{"lab": d["_id"], "count": d["count"]} for d in medicine_market.aggregate(labs_pipeline)]
+
+        # ── 4) Sources de données (basé sur data_sources) ──
+        source_labels = ["ANSM", "Theriaque", "DrugBank", "PubChem", "PharmGKB", "OpenFDA", "EMA"]
+        sources_data = []
+        for label in source_labels:
+            c = medicine_market.count_documents({"data_sources": {"$regex": f"^{label}$", "$options": "i"}})
+            if c > 0:
+                sources_data.append({"source": label, "count": c})
+
+        # ── 5) Top 20 substances (les plus présentes dans medicines via substance_ref_ids) ──
+        top_subs_pipeline = [
+            {"$unwind": "$substance_ref_ids"},
+            {"$group": {"_id": "$substance_ref_ids", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 20},
+            {"$lookup": {
+                "from": "substances_v3",
+                "localField": "_id",
+                "foreignField": "_id",
+                "as": "sub"
+            }},
+            {"$unwind": {"path": "$sub", "preserveNullAndEmptyArrays": True}},
+            {"$project": {
+                "label": {"$ifNull": ["$sub.label", "Inconnue"]},
+                "count": 1
+            }}
+        ]
+        top_substances = [
+            {"label": d.get("label", "Inconnue"), "count": d["count"]}
+            for d in medicines_v3.aggregate(top_subs_pipeline)
+        ]
+
+        # ── 6) PharmGKB – top 15 gènes les plus fréquents ──
+        genes_pipeline = [
+            {"$match": {"gene_symbol": {"$nin": [None, ""]}}},
+            {"$group": {"_id": "$gene_symbol", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 15}
+        ]
+        top_genes = [{"gene": d["_id"], "count": d["count"]} for d in db.pharmgkb_relationships.aggregate(genes_pipeline)]
+
+        # ── 7) DrugBank – répartition des chunks par type ──
+        chunks_pipeline = [
+            {"$group": {"_id": "$kind", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}}
+        ]
+        chunks_by_kind = [{"kind": d["_id"], "count": d["count"]} for d in db.drugbank_raw_chunks.aggregate(chunks_pipeline)]
+
+        # ── 8) PharmGKB – répartition par type d'association ──
+        assoc_pipeline = [
+            {"$match": {"association": {"$nin": [None, ""]}}},
+            {"$group": {"_id": "$association", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}}
+        ]
+        assoc_data = [{"type": d["_id"], "count": d["count"]} for d in db.pharmgkb_relationships.aggregate(assoc_pipeline)]
+
+        # ── 9) PharmGKB – PK vs PD ──
+        pk_count = db.pharmgkb_relationships.count_documents({"pk": {"$nin": [None, ""]}})
+        pd_count = db.pharmgkb_relationships.count_documents({"pd": {"$nin": [None, ""]}})
+
+        # ── 10) Derniers ajouts market ──
+        latest_raw = medicine_market.find(
+            {},
+            {"brand_title": 1, "country": 1, "laboratory": 1, "updated_at": 1}
+        ).sort([("updated_at", -1)]).limit(10)
+        latest = [
+            {
+                "brand_title": d.get("brand_title", ""),
+                "country": d.get("country", ""),
+                "laboratory": d.get("laboratory", ""),
+                "updated_at": str(d.get("updated_at", ""))
+            }
+            for d in latest_raw
+        ]
+
+        # ── 11) Formes galéniques top 10 ──
+        forms_pipeline = [
+            {"$match": {"form": {"$nin": [None, ""]}}},
+            {"$group": {"_id": "$form", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 10}
+        ]
+        top_forms = [{"form": d["_id"], "count": d["count"]} for d in medicine_market.aggregate(forms_pipeline)]
+
+        return render_template(
+            'dashboard.html',
+            total_market=total_market,
+            total_medicines=total_medicines,
+            total_substances=total_substances,
+            total_labs=total_labs,
+            total_pharmgkb=total_pharmgkb,
+            total_pgkb_rels=total_pgkb_rels,
+            total_drugbank=total_drugbank,
+            total_interactions=total_interactions,
+            countries_data=countries_data,
+            labs_data=labs_data,
+            sources_data=sources_data,
+            top_substances=top_substances,
+            top_genes=top_genes,
+            chunks_by_kind=chunks_by_kind,
+            assoc_data=assoc_data,
+            pk_count=pk_count,
+            pd_count=pd_count,
+            latest=latest,
+            top_forms=top_forms,
+        )
+    except Exception as e:
+        print(f"Erreur dashboard: {e}")
+        import traceback
+        traceback.print_exc()
+        abort(500)
+
+
+###############################################################################
+# ─── INTERACTION CHECKER ── Vérificateur d'interactions multi-médicaments ────
+###############################################################################
+
+@app.route('/interaction-checker')
+def interaction_checker():
+    """Page du vérificateur d'interactions médicamenteuses"""
+    return render_template('interaction_checker.html')
+
+
+@app.route('/api/interaction-checker/search-drugs', methods=['GET'])
+def interaction_checker_search_drugs():
+    """API autocomplete : cherche des médicaments/substances pour le checker"""
+    query = request.args.get('q', '').strip()
+    if len(query) < 2:
+        return jsonify([])
+
+    results = []
+    seen = set()
+    escaped = re.escape(query)
+
+    # 1) Chercher dans substances_v3 (priorité — noms internationaux)
+    for sub in substances_v3.find(
+        {'$or': [
+            {'label': {'$regex': escaped, '$options': 'i'}},
+            {'label_normalized': {'$regex': escaped.upper()}},
+        ]},
+        {'label': 1, 'label_normalized': 1, 'sources.drugbank.drugbank_id': 1}
+    ).limit(15):
+        drugbank_id = (sub.get('sources') or {}).get('drugbank', {}).get('drugbank_id')
+        label = sub.get('label', sub.get('label_normalized', ''))
+        key = label.lower()
+        if key not in seen and drugbank_id:
+            seen.add(key)
+            results.append({
+                'id': str(sub['_id']),
+                'label': label,
+                'type': 'substance',
+                'drugbank_id': drugbank_id
+            })
+
+    # 2) Chercher dans medicine_market (noms commerciaux)
+    for med in medicine_market.find(
+        {'brand_title': {'$regex': escaped, '$options': 'i'}},
+        {'brand_title': 1, 'medicine_ref': 1, 'country': 1, 'laboratory': 1, 'medicine_id': 1}
+    ).limit(10):
+        label = med.get('brand_title', '')
+        key = label.lower()
+        if key not in seen:
+            seen.add(key)
+            results.append({
+                'id': str(med['_id']),
+                'label': label,
+                'type': 'medicine',
+                'country': med.get('country', ''),
+                'laboratory': med.get('laboratory', ''),
+                'medicine_ref': str(med.get('medicine_ref', '')),
+                'medicine_id': med.get('medicine_id', '')
+            })
+
+    return jsonify(results[:20])
+
+
+def _resolve_drugbank_id(item):
+    """Résout le drugbank_id d'un item (substance ou médicament market)"""
+    # Si c'est une substance avec drugbank_id direct
+    if item.get('drugbank_id'):
+        return item['drugbank_id'], item.get('label', '')
+
+    def _find_substance_with_drugbank(name):
+        """Cherche une substance ayant un DrugBank ID via label, legacy ou synonymes PubChem"""
+        if not name:
+            return None, None
+        escaped = re.escape(name)
+        # 1) Par label direct
+        sub = substances_v3.find_one({
+            '$or': [
+                {'label': {'$regex': f'^{escaped}$', '$options': 'i'}},
+                {'label_normalized': name.upper()},
+            ],
+            'sources.drugbank.drugbank_id': {'$exists': True}
+        })
+        if sub:
+            dbid = sub['sources']['drugbank']['drugbank_id']
+            return dbid, sub.get('label', name)
+        # 2) Par legacy.substances_id (DCI français → substance anglaise avec DrugBank)
+        sub = substances_v3.find_one({
+            'legacy.substances_id': {'$regex': f'^{escaped}$', '$options': 'i'},
+            'sources.drugbank.drugbank_id': {'$exists': True}
+        })
+        if sub:
+            dbid = sub['sources']['drugbank']['drugbank_id']
+            return dbid, sub.get('label', name)
+        # 3) Par synonymes PubChem
+        sub = substances_v3.find_one({
+            'sources.pubchem.synonyms_top': {'$regex': f'^{escaped}$', '$options': 'i'},
+            'sources.drugbank.drugbank_id': {'$exists': True}
+        })
+        if sub:
+            dbid = sub['sources']['drugbank']['drugbank_id']
+            return dbid, sub.get('label', name)
+        # 4) Recherche partielle : extraire le mot-clé le plus long (sans accents) pour match fuzzy
+        import unicodedata
+        def _strip_accents(s):
+            return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+        words = re.sub(r'[^a-zA-ZÀ-ÿ\s]', '', name).split()
+        longest = max(words, key=len) if words else ''
+        if len(longest) >= 6:
+            prefix = _strip_accents(longest)[:7]
+            sub = substances_v3.find_one({
+                'label': {'$regex': prefix, '$options': 'i'},
+                'sources.drugbank.drugbank_id': {'$exists': True}
+            })
+            if sub:
+                dbid = sub['sources']['drugbank']['drugbank_id']
+                return dbid, sub.get('label', name)
+        return None, None
+
+    # Si c'est un médicament market, retrouver la substance active principale
+    if item.get('type') == 'medicine':
+        # Stratégie A : utiliser medicine_id (DCI / INN) du document market
+        medicine_id = item.get('medicine_id', '')
+        if medicine_id:
+            dbid, label = _find_substance_with_drugbank(medicine_id)
+            if dbid:
+                return dbid, label or item.get('label', '')
+
+        # Stratégie B : aller via medicine_ref -> medicines_v3 -> substances
+        if item.get('medicine_ref'):
+            try:
+                med = medicines_v3.find_one({'_id': ObjectId(item['medicine_ref'])})
+                if med:
+                    # Essayer les inns (DCI international)
+                    for inn in (med.get('inns') or []):
+                        if inn:
+                            dbid, label = _find_substance_with_drugbank(inn)
+                            if dbid:
+                                return dbid, label or item.get('label', '')
+
+                    # Essayer substance_labels
+                    for slabel in (med.get('substance_labels') or []):
+                        if slabel:
+                            dbid, label = _find_substance_with_drugbank(slabel)
+                            if dbid:
+                                return dbid, label or item.get('label', '')
+
+                    # Fallback : essayer les substance_ref_ids
+                    sub_refs = med.get('substance_refs', []) or med.get('substance_ref_ids', [])
+                    for ref in sub_refs:
+                        sub = substances_v3.find_one({'_id': ref})
+                        if not sub:
+                            try:
+                                sub = substances_v3.find_one({'_id': ObjectId(str(ref))})
+                            except Exception:
+                                pass
+                        if sub:
+                            dbid = (sub.get('sources') or {}).get('drugbank', {}).get('drugbank_id')
+                            if dbid:
+                                return dbid, sub.get('label', item.get('label', ''))
+            except Exception:
+                pass
+
+    # Fallback : chercher la substance par nom (brand label)
+    label = item.get('label', '')
+    if label:
+        dbid, found_label = _find_substance_with_drugbank(label)
+        if dbid:
+            return dbid, found_label or label
+
+    return None, label
+
+
+@app.route('/api/interaction-checker/check', methods=['POST'])
+def interaction_checker_check():
+    """
+    API principale : vérifie les interactions croisées entre N médicaments.
+    Body JSON : { "drugs": [ {id, label, type, drugbank_id?, medicine_ref?}, ... ] }
+    """
+    data = request.get_json(silent=True)
+    if not data or 'drugs' not in data:
+        return jsonify({'error': 'Données invalides'}), 400
+
+    drugs = data['drugs']
+    if len(drugs) < 2:
+        return jsonify({'error': 'Sélectionnez au moins 2 médicaments'}), 400
+    if len(drugs) > 10:
+        return jsonify({'error': 'Maximum 10 médicaments simultanés'}), 400
+
+    # 1) Résoudre les DrugBank IDs
+    drug_map = {}  # drugbank_id -> {label, ...}
+    for drug in drugs:
+        dbid, label = _resolve_drugbank_id(drug)
+        if dbid:
+            drug_map[dbid] = {
+                'drugbank_id': dbid,
+                'label': label or drug.get('label', dbid),
+                'original': drug
+            }
+
+    if len(drug_map) < 2:
+        return jsonify({
+            'error': 'Impossible de résoudre les identifiants DrugBank pour au moins 2 des médicaments sélectionnés.',
+            'resolved_count': len(drug_map)
+        }), 400
+
+    # 2) Pour chaque drug, récupérer TOUTES ses interactions
+    all_interactions = {}  # drugbank_id -> list[{name, drugbank-id, description}]
+    for dbid in drug_map:
+        chunks = list(db.drugbank_raw_chunks.find({
+            'drugbank_id': dbid,
+            'kind': 'drug-interactions'
+        }))
+        interactions = []
+        for chunk in chunks:
+            if chunk.get('data') and isinstance(chunk['data'], list):
+                interactions.extend(chunk['data'])
+        all_interactions[dbid] = interactions
+
+    # 3) Détecter les interactions croisées
+    cross_interactions = []
+    dbids = list(drug_map.keys())
+
+    for i in range(len(dbids)):
+        for j in range(i + 1, len(dbids)):
+            id_a = dbids[i]
+            id_b = dbids[j]
+            label_a = drug_map[id_a]['label']
+            label_b = drug_map[id_b]['label']
+
+            # A interagit avec B ?
+            for inter in all_interactions.get(id_a, []):
+                inter_dbid = inter.get('drugbank-id', '')
+                if inter_dbid == id_b:
+                    cross_interactions.append({
+                        'drug_a': label_a,
+                        'drug_a_id': id_a,
+                        'drug_b': label_b,
+                        'drug_b_id': id_b,
+                        'description': inter.get('description', 'Interaction documentée sans description détaillée.'),
+                        'source': 'DrugBank'
+                    })
+                    break
+            else:
+                # Vérifier dans l'autre sens (B interagit avec A)
+                for inter in all_interactions.get(id_b, []):
+                    inter_dbid = inter.get('drugbank-id', '')
+                    if inter_dbid == id_a:
+                        cross_interactions.append({
+                            'drug_a': label_a,
+                            'drug_a_id': id_a,
+                            'drug_b': label_b,
+                            'drug_b_id': id_b,
+                            'description': inter.get('description', 'Interaction documentée sans description détaillée.'),
+                            'source': 'DrugBank'
+                        })
+                        break
+
+    # 4) Récupérer aussi les enzymes CYP partagées (interactions potentielles via métabolisme)
+    enzyme_warnings = []
+    drug_enzymes = {}
+    for dbid in drug_map:
+        chunks = list(db.drugbank_raw_chunks.find({
+            'drugbank_id': dbid,
+            'kind': 'enzymes'
+        }))
+        enzymes = set()
+        for chunk in chunks:
+            if chunk.get('data') and isinstance(chunk['data'], list):
+                for enz in chunk['data']:
+                    name = enz.get('name', '')
+                    if name:
+                        enzymes.add(name)
+        drug_enzymes[dbid] = enzymes
+
+    # Trouver les enzymes partagées
+    for i in range(len(dbids)):
+        for j in range(i + 1, len(dbids)):
+            id_a = dbids[i]
+            id_b = dbids[j]
+            shared = drug_enzymes.get(id_a, set()) & drug_enzymes.get(id_b, set())
+            if shared:
+                enzyme_warnings.append({
+                    'drug_a': drug_map[id_a]['label'],
+                    'drug_b': drug_map[id_b]['label'],
+                    'shared_enzymes': sorted(shared),
+                    'warning': f"Ces deux médicaments sont métabolisés par les mêmes enzymes ({', '.join(sorted(shared))}), ce qui peut modifier leur efficacité ou leur toxicité."
+                })
+
+    # 5) Résumé
+    result = {
+        'drugs_analyzed': [
+            {'label': info['label'], 'drugbank_id': dbid}
+            for dbid, info in drug_map.items()
+        ],
+        'total_analyzed': len(drug_map),
+        'interactions': cross_interactions,
+        'interaction_count': len(cross_interactions),
+        'enzyme_warnings': enzyme_warnings,
+        'enzyme_warning_count': len(enzyme_warnings),
+        'severity_summary': {
+            'high': len(cross_interactions),  # Toute interaction DrugBank documentée = sérieuse
+            'moderate': len(enzyme_warnings),  # Compétition enzymatique = modéré
+        }
+    }
+
+    return jsonify(result)
+
 
 @app.route('/set_language/<language>')
 def set_language(language):
