@@ -93,14 +93,14 @@ Attention faire F12 et chercher de valeur de cookie du nom de (phpsessid et auth
 _______________________________________________________
 
 python -m scrapers.run_agno --mode theriaque --limit 20 `
-  --theriaque-phpsessid "REDACTED_PHPSESSID" `
-  --theriaque-authchallenge "REDACTED_AUTHCHALLENGE"
+  --theriaque-phpsessid "<VOTRE_PHPSESSID>" `
+  --theriaque-authchallenge "<VOTRE_AUTHCHALLENGE>"
 
 VERSION SANS LIMIT :
 ____________________________________
 python -m scrapers.run_agno --mode theriaque `
-  --theriaque-phpsessid "REDACTED_PHPSESSID" `
-  --theriaque-authchallenge "REDACTED_AUTHCHALLENGE"
+  --theriaque-phpsessid "<VOTRE_PHPSESSID>" `
+  --theriaque-authchallenge "<VOTRE_AUTHCHALLENGE>"
 ################################################################################
 {
   "theriaque": { "$exists": true }
