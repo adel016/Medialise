@@ -8,7 +8,7 @@ WTForms==3.0.1
 python-dotenv>=0.19.0
 email-validator==2.0.0
 requests>=2.25.0
-mistralai>=0.0.7
+mistralai>=1.0.0,<2.0.0
 flask_pymongo
 bs4
 pandas
