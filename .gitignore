@@ -20,9 +20,9 @@ __pycache__/
 .env
 .env.local
 
-# Rapport
-Rapport Medialise.docx
-
+# Logs
+*.log
+frontend_backend/logs/
 
 # PubChem images (générées localement)
 data/pubchem_images/

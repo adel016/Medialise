@@ -8,14 +8,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Installer les dépendances de l'app
-COPY ../frontend_backend/requirements.txt .
+# NOTE: le build context est la racine du projet (voir docker-compose.yml: context: ..)
+COPY frontend_backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copier le code de l'application
-COPY ../frontend_backend/ .
+COPY frontend_backend/ .
 
 # Copier aussi le dossier scrapers (à la racine du projet Medialise)
-COPY ../scrapers/ ./scrapers/
+COPY scrapers/ ./scrapers/
 
 # Compiler les traductions Flask-Babel
 RUN if [ -d "translations" ]; then \

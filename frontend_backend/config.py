@@ -8,7 +8,13 @@ class Config:
     # En développement hors Docker : mongodb://localhost:27017/medicsearch
     # Dans Docker : mongodb://mongo:27017/medicsearch
     MONGO_URI = os.environ.get('MONGO_URI', 'mongodb://localhost:27017/medicsearch')
-    
+
+    # Configuration Qdrant
+    # Dans Docker (docker-compose) : QDRANT_HOST=qdrant
+    # En développement hors Docker : localhost
+    QDRANT_HOST = os.environ.get('QDRANT_HOST', 'localhost')
+    QDRANT_PORT = int(os.environ.get('QDRANT_PORT', 6333))
+
     # Configuration de sécurité
     # SECRET_KEY reste nécessaire pour les flash messages et la protection CSRF
     SECRET_KEY = os.environ.get('SECRET_KEY', 'e8b7c9d2f5a3b1e4c6d8f0a9b2e7d5c1')

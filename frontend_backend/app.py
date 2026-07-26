@@ -62,7 +62,7 @@ def get_locale():
 
 babel.init_app(app, locale_selector=get_locale)
 
-qdrant_client = QdrantClient("qdrant", port=6333)
+qdrant_client = QdrantClient(app.config['QDRANT_HOST'], port=app.config['QDRANT_PORT'])
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 
 def wait_for_mongo(uri, timeout=30):
