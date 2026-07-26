@@ -13,9 +13,6 @@ msgstr ""
 msgid "search_placeholder"
 msgstr "Rechercher un médicament..."
 
-msgid "vector_search"
-msgstr "Recherche Sémantique"
-
 msgid "classic_search"
 msgstr "Recherche Classique"
 
@@ -101,9 +98,6 @@ msgstr "Medialise est un entrepôt de données médicales multi-sources conçu p
 msgid "home.classic_search"
 msgstr "Recherche classique"
 
-msgid "home.advanced_search"
-msgstr "Recherche avancée"
-
 msgid "home.academic_use"
 msgstr "Usage académique"
 
@@ -175,12 +169,6 @@ msgstr "Recherche textuelle rapide par nom, CIS, substance ou laboratoire. Résu
 
 msgid "home.try"
 msgstr "Essayer"
-
-msgid "home.vector_search_title"
-msgstr "Recherche vectorielle"
-
-msgid "home.vector_search_description"
-msgstr "Recherche sémantique basée sur le sens, même si les termes exacts ne correspondent pas."
 
 msgid "home.ai_search_title"
 msgstr "Recherche IA (RAG)"

@@ -82,61 +82,6 @@ def wait_for_mongo(uri, timeout=30):
             print("MongoDB pas encore prêt, nouvelle tentative...")
             time.sleep(2)
 
-@app.route('/vector-search', methods=['GET', 'POST'])
-def vector_search():
-    """Recherche vectorielle sémantique via Qdrant avec pagination et affichage enrichi"""
-    results = []
-    query = request.args.get('query', '').strip()
-    initial_count = 10
-    load_more_count = 10
-    total = 0
-
-    if query:
-        # 1) Embedding de la requête
-        query_vector = embedding_model.encode(query).tolist()
-
-        # 2) Appel à Qdrant avec query_points -> QueryResponse.points
-        qdrant_response = qdrant_client.query_points(
-            collection_name="medicaments",
-            query=query_vector,
-            limit=1000
-        )
-        qdrant_results = qdrant_response.points or []
-
-        # 3) Filtrer par score minimum (seuil raisonnable)
-        filtered_qdrant = [
-            res for res in qdrant_results
-            if getattr(res, "score", None) is not None and res.score >= 0.05
-        ]
-        total = len(filtered_qdrant)
-
-        # 4) Récupérer les documents Mongo associés
-        for res in filtered_qdrant:
-            payload = getattr(res, "payload", {}) or {}
-            mongo_id = payload.get("mongo_id")
-            med = None
-            if mongo_id:
-                med = collection.find_one({'_id': ObjectId(mongo_id)})
-                if med and '_id' in med:
-                    med['_id'] = str(med['_id'])
-
-            results.append({
-                'score': getattr(res, 'score', None),
-                'title': payload.get('title', ''),
-                'mongo_id': str(mongo_id) if mongo_id else '',
-                'medicine': med
-            })
-
-    return render_template(
-        "vector_search.html",
-        results=results,
-        query=query,
-        total=total,
-        initial_count=initial_count,
-        load_more_count=load_more_count,
-    )
-
-
 # Attendre Mongo AVANT init_db
 wait_for_mongo(app.config["MONGO_URI"])
 

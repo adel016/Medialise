@@ -19,9 +19,6 @@ msgstr ""
 msgid "search_placeholder"
 msgstr "Rechercher un médicament..."
 
-msgid "vector_search"
-msgstr "Recherche Sémantique"
-
 msgid "classic_search"
 msgstr "Recherche Classique"
 

@@ -13,9 +13,6 @@ msgstr ""
 msgid "search_placeholder"
 msgstr "البحث عن دواء..."
 
-msgid "vector_search"
-msgstr "البحث الدلالي"
-
 msgid "classic_search"
 msgstr "البحث الكلاسيكي"
 
@@ -101,9 +98,6 @@ msgstr "ميدياليز هو مستودع بيانات طبية متعدد ال
 msgid "home.classic_search"
 msgstr "البحث الكلاسيكي"
 
-msgid "home.advanced_search"
-msgstr "البحث المتقدم"
-
 msgid "home.academic_use"
 msgstr "للاستخدام الأكاديمي"
 
@@ -175,12 +169,6 @@ msgstr "بحث نصي سريع بالاسم أو CIS أو المادة أو ال
 
 msgid "home.try"
 msgstr "جرب"
-
-msgid "home.vector_search_title"
-msgstr "البحث المتجه"
-
-msgid "home.vector_search_description"
-msgstr "بحث دلالي يعتمد على المعنى، حتى لو لم تتطابق المصطلحات بالضبط."
 
 msgid "home.ai_search_title"
 msgstr "البحث بالذكاء الاصطناعي (RAG)"

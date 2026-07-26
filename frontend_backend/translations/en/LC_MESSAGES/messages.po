@@ -13,9 +13,6 @@ msgstr ""
 msgid "search_placeholder"
 msgstr "Search for a medicine..."
 
-msgid "vector_search"
-msgstr "Semantic Search"
-
 msgid "classic_search"
 msgstr "Classic Search"
 
@@ -101,9 +98,6 @@ msgstr "Medialise is a multi-source medical data warehouse designed to facilitat
 msgid "home.classic_search"
 msgstr "Classic search"
 
-msgid "home.advanced_search"
-msgstr "Advanced search"
-
 msgid "home.academic_use"
 msgstr "Academic use"
 
@@ -175,12 +169,6 @@ msgstr "Fast text search by name, CIS, substance or laboratory. Readable, struct
 
 msgid "home.try"
 msgstr "Try"
-
-msgid "home.vector_search_title"
-msgstr "Vector search"
-
-msgid "home.vector_search_description"
-msgstr "Semantic search based on meaning, even if exact terms don't match."
 
 msgid "home.ai_search_title"
 msgstr "AI Search (RAG)"
